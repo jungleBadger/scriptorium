@@ -8,7 +8,11 @@ Converts Bible sources (USFM or USFX format) into structured data in Postgres an
 # Full pipeline (parse, load, chunk, embed)
 npm run ingest:rebuild
 
-# Wipe all data (keeps containers running)
+# Entity enrichment (run after verses are loaded)
+npm run ingest:entities:openbible
+npm run ingest:entities:hitchcock
+
+# Wipe all data including entities (keeps containers running)
 npm run ingest:destroy
 ```
 
@@ -62,6 +66,36 @@ node ingest/scripts/embed_chunks_to_milvus.mjs
 
 Reads chunks from Postgres, generates embeddings using `paraphrase-multilingual-MiniLM-L12-v2`, and inserts them into Milvus.
 
+## Entity Enrichment
+
+A separate, independently-runnable pipeline that populates an entity knowledge layer (places, people) with translation-independent data. Entity ingestors are idempotent and can be re-run at any time without affecting verse data.
+
+### Schema
+
+- **`entities`** — People, places, and other named biblical items with coordinates, types, and extensible JSONB metadata
+- **`entity_aliases`** — Translation-independent name variants (e.g., "Abana" / "Abanah")
+- **`entity_verses`** — Verse anchoring by `(book_id, chapter, verse)`, not tied to any specific translation
+
+Migration: `ingest/sql/004_entities.sql`
+
+### 5. Load OpenBible Geodata
+
+```bash
+npm run ingest:entities:openbible
+```
+
+Parses `ingest/data/ancient.jsonl` (~1,342 places) from the [OpenBible Geodata](https://github.com/openbibleinfo/Bible-Geocoding-Data) project. Extracts coordinates, place types, translation name variants (as aliases), verse references, and linked data / media into JSONB metadata.
+
+### 6. Load Hitchcock's Bible Names
+
+```bash
+npm run ingest:entities:hitchcock
+```
+
+Parses `ingest/data/HitchcocksBibleNamesDictionary.csv` (~2,623 names). Merges with existing OpenBible entities by case-insensitive name match (adding etymological meanings), and creates new `person`-type entities for unmatched names.
+
+**Run order:** OpenBible first (provides base place entities), then Hitchcock (enriches and extends).
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -97,6 +131,21 @@ WHERE EXISTS (SELECT 1 FROM jsonb_array_elements_text(verse_refs) v WHERE v LIKE
   AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(verse_refs) v WHERE v LIKE 'WEBU:%');
 ```
 
+```sql
+-- Entity counts
+SELECT source, COUNT(*) FROM entities GROUP BY source;
+SELECT COUNT(*) AS aliases FROM entity_aliases;
+SELECT COUNT(*) AS verse_refs FROM entity_verses;
+
+-- Spot check: entity with aliases and verse refs
+SELECT e.canonical_name, e.type, e.description,
+       array_agg(DISTINCT a.name_form) AS aliases
+FROM entities e
+JOIN entity_aliases a ON a.entity_id = e.id
+WHERE e.canonical_name = 'Abana'
+GROUP BY e.id;
+```
+
 ```bash
 # Semantic search (all translations)
 npm run search "In the beginning God created the heavens and the earth"
@@ -111,3 +160,10 @@ node scripts/search_cli.mjs "No princípio criou Deus" --translations=PT1911
 |---|---|---|---|---|
 | `WEBU` | English | USFM | [ebible.org](https://ebible.org/) | `ingest/data/engwebu_usfm.zip` |
 | `PT1911` | Portuguese | USFX | Almeida Revista e Corrigida (1911) | `ingest/data/por-almeida.usfx.xml` |
+
+### Entity Data
+
+| Source | Description | File |
+|---|---|---|
+| OpenBible Geodata | ~1,342 ancient places with coordinates, verse refs, and media | `ingest/data/ancient.jsonl` |
+| Hitchcock's Names | ~2,623 biblical names with etymological meanings | `ingest/data/HitchcocksBibleNamesDictionary.csv` |

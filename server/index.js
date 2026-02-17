@@ -1,12 +1,16 @@
 // server/index.js
 // Scriptorium BFF – Fastify server bootstrap.
 
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
 import cors from "@fastify/cors";
 import { closePool } from "./services/chunksRepo.js";
 import searchRoutes from "./routes/search.js";
 import healthRoutes from "./routes/health.js";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
@@ -15,6 +19,15 @@ const app = Fastify({ logger: true });
 await app.register(cors);
 await app.register(searchRoutes);
 await app.register(healthRoutes);
+
+// ---------- Serve built client SPA ----------
+const clientDist = path.join(__dirname, "..", "client", "dist");
+await app.register(fastifyStatic, { root: clientDist, wildcard: false });
+
+// SPA fallback – serve index.html for any non-API route
+app.setNotFoundHandler((_req, reply) => {
+  reply.sendFile("index.html");
+});
 
 // ---------- Start ----------
 const start = async () => {

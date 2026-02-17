@@ -5,7 +5,7 @@
 //   node ingest/scripts/destroy.mjs
 //
 // What it does:
-//   1. TRUNCATE verses, chunks in Postgres
+//   1. TRUNCATE verses, chunks, entity tables in Postgres
 
 import { Client } from "pg";
 
@@ -19,8 +19,8 @@ async function main() {
     });
 
     await pg.connect();
-    await pg.query("TRUNCATE TABLE chunks, verses");
-    console.log("Postgres: truncated verses and chunks.");
+    await pg.query("TRUNCATE TABLE entity_verses, entity_aliases, entities, chunks, verses");
+    console.log("Postgres: truncated verses, chunks, and entity tables.");
     await pg.end();
 
     console.log("Destroy complete.");
