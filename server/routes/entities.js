@@ -1,7 +1,7 @@
 // server/routes/entities.js
 // Entity lookup and search endpoints.
 
-import { searchEntities, getEntityById, getEntitiesByVerse } from "../services/entitiesRepo.js";
+import { searchEntities, getEntityById, getEntitiesByVerse, getGeoEntities } from "../services/entitiesRepo.js";
 
 const searchSchema = {
   querystring: {
@@ -13,6 +13,15 @@ const searchSchema = {
       offset: { type: "integer", minimum: 0, default: 0 },
     },
     required: ["q"],
+  },
+};
+
+const geoSchema = {
+  querystring: {
+    type: "object",
+    properties: {
+      type: { type: "string", maxLength: 50 },
+    },
   },
 };
 
@@ -44,6 +53,13 @@ export default async function entityRoutes(app) {
     const { q, type, limit, offset } = req.query;
     const results = await searchEntities(q, { type, limit, offset });
     return { query: q, total: results.length, results };
+  });
+
+  // GET /api/entities/geo?type=
+  app.get("/api/entities/geo", { schema: geoSchema }, async (req) => {
+    const { type } = req.query;
+    const results = await getGeoEntities({ type });
+    return { total: results.length, results };
   });
 
   // GET /api/entities/by-verse/:bookId/:chapter/:verse

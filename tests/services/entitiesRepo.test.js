@@ -72,7 +72,7 @@ describe("getEntityById", () => {
     const result = await getEntityById(42);
 
     expect(mockQuery).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ ...entityRow, verses: verseRows });
+    expect(result).toEqual({ ...entityRow, verses: verseRows, related: [] });
   });
 
   it("returns null when entity does not exist", async () => {

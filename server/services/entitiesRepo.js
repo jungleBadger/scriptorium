@@ -59,10 +59,47 @@ export async function getEntityById(id) {
 
   if (!entityRes.rows.length) return null;
 
+  const entity = entityRes.rows[0];
+
+  // Resolve related entity IDs from LLM enrichment to { id, canonical_name, type }
+  let related = [];
+  const relatedIds = entity.metadata?.llm_enrichment?.related_entities;
+  if (Array.isArray(relatedIds) && relatedIds.length > 0) {
+    const { rows } = await pool.query(
+      `SELECT id, canonical_name, type FROM entities WHERE id = ANY($1::int[])`,
+      [relatedIds]
+    );
+    related = rows;
+  }
+
   return {
-    ...entityRes.rows[0],
+    ...entity,
     verses: versesRes.rows,
+    related,
   };
+}
+
+/**
+ * Get all entities with geo coordinates (for map layer).
+ * Optional type filter.
+ */
+export async function getGeoEntities({ type } = {}) {
+  const pool = getPool();
+  const params = [];
+  let typeClause = "";
+  if (type) {
+    typeClause = `AND type ILIKE $1`;
+    params.push(`${type}%`);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT id, canonical_name, type, lon, lat
+     FROM entities
+     WHERE lon IS NOT NULL AND lat IS NOT NULL ${typeClause}
+     ORDER BY id`,
+    params
+  );
+  return rows;
 }
 
 /**

@@ -5,7 +5,7 @@ import {
     buildUserPrompt,
     callOllama,
     checkNameRelevance,
-} from "../../ingest/scripts/enrich_entities_llm.mjs";
+} from "../../ingest/scripts/enrich_entities_metadata_llm.mjs";
 
 // ── parseAndValidate ────────────────────────────────────────────
 
