@@ -13,7 +13,8 @@
     "ingest:rebuild": "node ingest/scripts/rebuild.mjs",
     "ingest:entities:openbible": "node ingest/scripts/load_openbible_places.mjs ingest/data/ancient.jsonl",
     "ingest:entities:hitchcock": "node ingest/scripts/load_hitchcock_names.mjs ingest/data/HitchcocksBibleNamesDictionary.csv",
-    "ingest:entities:enrich": "node ingest/scripts/enrich_entities_llm.mjs",
+    "ingest:entities:enrich:meta": "node ingest/scripts/enrich_entities_metadata_llm.mjs",
+    "ingest:entities:enrich:desc": "node ingest/scripts/enrich_entities_description_llm.mjs",
     "ingest:entities:export": "node ingest/scripts/export_entities_jsonl.mjs ingest/out/entities --batch-size 150",
     "test": "vitest run"
   },
