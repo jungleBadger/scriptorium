@@ -1,6 +1,6 @@
 # Ingestion Pipeline
 
-Converts Bible sources (USFM or USFX format) into structured data in Postgres and vector embeddings in Milvus. Supports multiple translations — chunks are scoped per translation so languages are never mixed.
+Converts Bible sources (USFM or USFX format) into structured data in Postgres and vector embeddings via pgvector. Supports multiple translations — chunks are scoped per translation so languages are never mixed.
 
 ## Quick Start
 
@@ -50,21 +50,13 @@ node ingest/scripts/generate_chunks.mjs 3 1
 
 Creates overlapping 3-verse windows (stride 1) within each chapter, scoped per translation. Writes to the `chunks` table. Truncates existing chunks before inserting so reruns are idempotent.
 
-### 4a. Init Milvus Collection
+### 4. Embed Chunks to Postgres (pgvector)
 
 ```bash
-RESET_MILVUS=true node ingest/scripts/milvus_init.mjs
+node ingest/scripts/embed_chunks.mjs
 ```
 
-Creates the `bible_chunks` collection with an HNSW index on the embedding field. When `RESET_MILVUS=true`, drops the existing collection first.
-
-### 4b. Embed Chunks to Milvus
-
-```bash
-node ingest/scripts/embed_chunks_to_milvus.mjs
-```
-
-Reads chunks from Postgres, generates embeddings using `paraphrase-multilingual-MiniLM-L12-v2`, and inserts them into Milvus.
+Reads chunks from Postgres, generates embeddings using `paraphrase-multilingual-MiniLM-L12-v2`, and writes them back to the `chunks.embedding` column (pgvector `vector(384)` with HNSW cosine index). Migration: `ingest/sql/003_embeddings.sql`.
 
 ## Entity Enrichment
 
@@ -105,12 +97,9 @@ Parses `ingest/data/HitchcocksBibleNamesDictionary.csv` (~2,623 names). Merges w
 | `PGUSER` | `bible` | Postgres user |
 | `PGPASSWORD` | `bible` | Postgres password |
 | `PGDATABASE` | `bible` | Postgres database |
-| `MILVUS_ADDRESS` | `localhost:19530` | Milvus gRPC address |
-| `MILVUS_COLLECTION` | `bible_chunks` | Milvus collection name |
 | `EMBED_MODEL` | `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | Sentence-transformer model |
 | `EMBED_DIM` | `384` | Embedding dimension |
 | `BATCH` | `32` | Embedding batch size |
-| `RESET_MILVUS` | `false` | Drop collection before init |
 
 ## Verification
 
