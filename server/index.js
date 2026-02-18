@@ -10,6 +10,8 @@ import { closePool } from "./services/pool.js";
 import searchRoutes from "./routes/search.js";
 import healthRoutes from "./routes/health.js";
 import entityRoutes from "./routes/entities.js";
+import bookRoutes from "./routes/books.js";
+import chapterRoutes from "./routes/chapters.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -21,6 +23,8 @@ await app.register(cors);
 await app.register(searchRoutes);
 await app.register(healthRoutes);
 await app.register(entityRoutes);
+await app.register(bookRoutes);
+await app.register(chapterRoutes);
 
 // ---------- Serve built client SPA ----------
 const clientDist = path.join(__dirname, "..", "client", "dist");
