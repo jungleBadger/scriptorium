@@ -1,7 +1,7 @@
 // server/services/vectorSearch.js
 // pgvector-based semantic search for bible chunks.
 
-import { getPool } from "./chunksRepo.js";
+import { getPool } from "./pool.js";
 
 /**
  * Search for nearest chunks to the given embedding vector using pgvector.

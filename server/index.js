@@ -6,9 +6,10 @@ import path from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import cors from "@fastify/cors";
-import { closePool } from "./services/chunksRepo.js";
+import { closePool } from "./services/pool.js";
 import searchRoutes from "./routes/search.js";
 import healthRoutes from "./routes/health.js";
+import entityRoutes from "./routes/entities.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -19,6 +20,7 @@ const app = Fastify({ logger: true });
 await app.register(cors);
 await app.register(searchRoutes);
 await app.register(healthRoutes);
+await app.register(entityRoutes);
 
 // ---------- Serve built client SPA ----------
 const clientDist = path.join(__dirname, "..", "client", "dist");

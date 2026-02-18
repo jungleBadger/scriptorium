@@ -1,7 +1,7 @@
 // server/routes/health.js
 // GET /health — liveness check for Postgres.
 
-import { getPool } from "../services/chunksRepo.js";
+import { getPool } from "../services/pool.js";
 
 async function healthHandler(req, reply) {
   const status = { postgres: false };
