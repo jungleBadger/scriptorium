@@ -1,6 +1,6 @@
 # Ingestion Pipeline
 
-Converts Bible sources (USFM or USFX format) into structured data in Postgres and vector embeddings via pgvector. Supports multiple translations — chunks are scoped per translation so languages are never mixed.
+Converts Bible sources (USFM or USFX format) into structured data in Postgres and vector embeddings via pgvector. Supports multiple translations; chunks are scoped per translation so languages are never mixed.
 
 ## Quick Start
 
@@ -10,7 +10,11 @@ npm run ingest:rebuild
 
 # Entity enrichment (run after verses are loaded)
 npm run ingest:entities:openbible
+npm run ingest:entities:openbible:full
 npm run ingest:entities:hitchcock
+
+# Chapter explanation enrichment (offline LLM pipeline)
+npm run ingest:chapters:explain
 
 # Wipe all data including entities (keeps containers running)
 npm run ingest:destroy
@@ -64,13 +68,25 @@ A separate, independently-runnable pipeline that populates an entity knowledge l
 
 ### Schema
 
-- **`entities`** — People, places, and other named biblical items with coordinates, types, and extensible JSONB metadata
-- **`entity_aliases`** — Translation-independent name variants (e.g., "Abana" / "Abanah")
-- **`entity_verses`** — Verse anchoring by `(book_id, chapter, verse)`, not tied to any specific translation
+- **`entities`** - People, places, and other named biblical items with coordinates, types, and extensible JSONB metadata
+- **`entity_aliases`** - Translation-independent name variants (e.g., "Abana" / "Abanah")
+- **`entity_verses`** - Verse anchoring by `(book_id, chapter, verse)`, not tied to any specific translation
+- **`openbible_*`** - Normalized OpenBible records for modern locations, geometry, sources, and images (plus link tables)
 
-Migration: `ingest/sql/004_entities.sql`
+Migrations:
+- `ingest/sql/004_entities.sql` (entity tables)
+- `ingest/sql/005_entities_geo_indexes.sql` (geo/search performance indexes)
+- `ingest/sql/007_openbible_extended.sql` (normalized OpenBible modern/geometry/source/image tables and links)
+- `ingest/sql/008_chapter_explanations.sql` (chapter-level explanation outputs)
 
-### 5. Load OpenBible Geodata
+Apply manually if needed:
+```bash
+psql -h localhost -U bible -d bible -f ingest/sql/005_entities_geo_indexes.sql
+psql -h localhost -U bible -d bible -f ingest/sql/007_openbible_extended.sql
+psql -h localhost -U bible -d bible -f ingest/sql/008_chapter_explanations.sql
+```
+
+### 5. Load OpenBible Geodata (Ancient-only)
 
 ```bash
 npm run ingest:entities:openbible
@@ -78,7 +94,22 @@ npm run ingest:entities:openbible
 
 Parses `ingest/data/ancient.jsonl` (~1,342 places) from the [OpenBible Geodata](https://github.com/openbibleinfo/Bible-Geocoding-Data) project. Extracts coordinates, place types, translation name variants (as aliases), verse references, and linked data / media into JSONB metadata.
 
-### 6. Load Hitchcock's Bible Names
+### 6. Load OpenBible Geodata (Full normalized bundle)
+
+```bash
+npm run ingest:entities:openbible:full
+```
+
+Consumes all OpenBible JSONL datasets and writes deterministic, normalized records plus canonical entity links:
+- `ingest/data/source.jsonl`
+- `ingest/data/image.jsonl`
+- `ingest/data/geometry.jsonl`
+- `ingest/data/modern.jsonl`
+- `ingest/data/ancient.jsonl`
+
+The full loader repopulates `openbible_*` tables and refreshes OpenBible-derived links for `entities`.
+
+### 7. Load Hitchcock's Bible Names
 
 ```bash
 npm run ingest:entities:hitchcock
@@ -87,6 +118,46 @@ npm run ingest:entities:hitchcock
 Parses `ingest/data/HitchcocksBibleNamesDictionary.csv` (~2,623 names). Merges with existing OpenBible entities by case-insensitive name match (adding etymological meanings), and creates new `person`-type entities for unmatched names.
 
 **Run order:** OpenBible first (provides base place entities), then Hitchcock (enriches and extends).
+
+## Chapter Explanation Enrichment
+
+Generates one chapter-level explanation per chapter using local Ollama and stores results in `chapter_explanations`.
+
+### 8. Generate Chapter Explanations
+
+```bash
+npm run ingest:chapters:explain
+```
+
+Targeted examples:
+
+```bash
+# Single chapter
+node ingest/scripts/enrich_chapters_explanation_ollama.mjs --translation WEBU --book GEN --chapter 1 --force
+
+# First 20 chapters for PT1911
+node ingest/scripts/enrich_chapters_explanation_ollama.mjs --translation PT1911 --limit 20
+```
+
+Prompt template:
+- `ingest/prompts/chapter_explainer_prompt.txt`
+- `ingest/prompts/chapter_explainer_prompt_8b.txt` (used as default simple prompt in `--auto-model` mode)
+
+Useful options:
+
+```bash
+# Auto model routing (simple/complex) based on chapter complexity
+node ingest/scripts/enrich_chapters_explanation_ollama.mjs --auto-model
+
+# Override generation limits
+node ingest/scripts/enrich_chapters_explanation_ollama.mjs --num-predict 850 --word-target 220
+```
+
+Validation and retry behavior:
+- JSON parsing validates shape only: JSON object, exactly one top-level key `chapter_explanation`, non-empty string value.
+- Meta/payload framing is evaluated separately and can trigger one targeted retry with stricter wording guidance.
+- Existing retries remain in place for invalid JSON, truncation, word-count bounds, and grounding.
+- `_meta` in `output_json` includes retry telemetry including `meta_talk_retry`, `meta_talk_ok`, and optional `meta_talk_hits`.
 
 ## Environment Variables
 
@@ -100,6 +171,17 @@ Parses `ingest/data/HitchcocksBibleNamesDictionary.csv` (~2,623 names). Merges w
 | `EMBED_MODEL` | `Xenova/paraphrase-multilingual-MiniLM-L12-v2` | Sentence-transformer model |
 | `EMBED_DIM` | `384` | Embedding dimension |
 | `BATCH` | `32` | Embedding batch size |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
+| `CHAPTER_MODEL` | `qwen3:14b` | Model used by chapter explainer pipeline (single-model mode; falls back to `OLLAMA_MODEL` if set) |
+| `CHAPTER_MODEL_SIMPLE` | `qwen3:7b` | Simple-model target for `--auto-model` |
+| `CHAPTER_MODEL_COMPLEX` | `qwen3:14b` | Complex-model target for `--auto-model` |
+| `CHAPTER_TEMP` | `0.15` | Temperature used by chapter explainer pipeline |
+| `CHAPTER_TOP_P` | `0.75` | Top-p used by chapter explainer pipeline |
+| `CHAPTER_NUM_PREDICT` | `700` | Default max generated tokens |
+| `CHAPTER_WORD_TARGET` | `220` | Prompt target word count |
+| `CHAPTER_PROMPT` | `ingest/prompts/chapter_explainer_prompt.txt` | Default prompt path |
+| `CHAPTER_PROMPT_SIMPLE` | `ingest/prompts/chapter_explainer_prompt_8b.txt` | Simple prompt path for `--auto-model` |
+| `CHAPTER_PROMPT_COMPLEX` | `CHAPTER_PROMPT` | Complex prompt path for `--auto-model` |
 
 ## Verification
 
@@ -126,6 +208,18 @@ SELECT source, COUNT(*) FROM entities GROUP BY source;
 SELECT COUNT(*) AS aliases FROM entity_aliases;
 SELECT COUNT(*) AS verse_refs FROM entity_verses;
 
+-- Extended OpenBible counts
+SELECT COUNT(*) AS modern_rows FROM openbible_modern;
+SELECT COUNT(*) AS geometry_rows FROM openbible_geometries;
+SELECT COUNT(*) AS source_rows FROM openbible_sources;
+SELECT COUNT(*) AS image_rows FROM openbible_images;
+
+-- Chapter explanation counts
+SELECT status, COUNT(*) FROM chapter_explanations GROUP BY status ORDER BY status;
+SELECT COUNT(*) AS chapters_ready
+FROM chapter_explanations
+WHERE translation = 'WEBU' AND status = 'ready';
+
 -- Spot check: entity with aliases and verse refs
 SELECT e.canonical_name, e.type, e.description,
        array_agg(DISTINCT a.name_form) AS aliases
@@ -140,7 +234,7 @@ GROUP BY e.id;
 npm run search "In the beginning God created the heavens and the earth"
 
 # Search filtered to a specific translation
-node scripts/search_cli.mjs "No princípio criou Deus" --translations=PT1911
+node scripts/search_cli.mjs "No principio criou Deus" --translations=PT1911
 ```
 
 ## Data Sources
@@ -154,5 +248,9 @@ node scripts/search_cli.mjs "No princípio criou Deus" --translations=PT1911
 
 | Source | Description | File |
 |---|---|---|
-| OpenBible Geodata | ~1,342 ancient places with coordinates, verse refs, and media | `ingest/data/ancient.jsonl` |
+| OpenBible Geodata (ancient) | ~1,342 ancient places with coordinates, verse refs, and media | `ingest/data/ancient.jsonl` |
+| OpenBible Geodata (modern) | ~1,596 modern places, coordinate provenance, and associations | `ingest/data/modern.jsonl` |
+| OpenBible Geodata (geometry) | ~588 geometry records used by modern/ancient mappings | `ingest/data/geometry.jsonl` |
+| OpenBible Geodata (sources) | ~442 bibliographic/source records | `ingest/data/source.jsonl` |
+| OpenBible Geodata (images) | ~2,424 image attribution and asset records | `ingest/data/image.jsonl` |
 | Hitchcock's Names | ~2,623 biblical names with etymological meanings | `ingest/data/HitchcocksBibleNamesDictionary.csv` |
