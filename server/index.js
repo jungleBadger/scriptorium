@@ -8,6 +8,7 @@ import fastifyStatic from "@fastify/static";
 import cors from "@fastify/cors";
 import { closePool } from "./services/pool.js";
 import searchRoutes from "./routes/search.js";
+import askRoutes from "./routes/ask.js";
 import healthRoutes from "./routes/health.js";
 import entityRoutes from "./routes/entities.js";
 import bookRoutes from "./routes/books.js";
@@ -21,6 +22,7 @@ const app = Fastify({ logger: true });
 
 await app.register(cors);
 await app.register(searchRoutes);
+await app.register(askRoutes);
 await app.register(healthRoutes);
 await app.register(entityRoutes);
 await app.register(bookRoutes);
