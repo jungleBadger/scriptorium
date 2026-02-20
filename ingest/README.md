@@ -13,6 +13,7 @@ npm run ingest:entities:openbible
 npm run ingest:entities:openbible:full
 npm run ingest:entities:hitchcock
 npm run ingest:entities:person-refs
+npm run ingest:entities:export
 
 # Chapter explanation enrichment (offline LLM pipeline)
 npm run ingest:chapters:explain
@@ -20,6 +21,9 @@ npm run ingest:chapters:explain
 # Wipe all data including entities (keeps containers running)
 npm run ingest:destroy
 ```
+
+`npm run ingest:rebuild` runs the default WEBU ingest path (`001 -> 003 -> 004 -> 005`).
+Use `001_usfm_to_verses.mjs` / `002_usfx_to_verses.mjs` directly when loading other translations.
 
 ## Pipeline Steps
 
@@ -176,9 +180,14 @@ Useful options:
 # Auto model routing (simple/complex) based on chapter complexity
 node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --auto-model
 
+# Fast-plus mode (lighter retry chain, defaults prompt/model to simple profile)
+node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --fast-plus
+
 # Override generation limits
 node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --num-predict 850 --word-target 220
 ```
+
+`--fast-plus` and `--auto-model` are mutually exclusive.
 
 Validation and retry behavior:
 - JSON parsing validates shape only: JSON object, exactly one top-level key `chapter_explanation`, non-empty string value.
@@ -199,8 +208,8 @@ Validation and retry behavior:
 | `EMBED_DIM` | `384` | Embedding dimension |
 | `BATCH` | `32` | Embedding batch size |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL |
-| `CHAPTER_MODEL` | `qwen3:14b` | Model used by chapter explainer pipeline (single-model mode; falls back to `OLLAMA_MODEL` if set) |
-| `CHAPTER_MODEL_SIMPLE` | `qwen3:7b` | Simple-model target for `--auto-model` |
+| `CHAPTER_MODEL` | `qwen3:8b` | Model used by chapter explainer pipeline (single-model mode; falls back to `OLLAMA_MODEL` if set) |
+| `CHAPTER_MODEL_SIMPLE` | `qwen3:8b` | Simple-model target for `--auto-model` |
 | `CHAPTER_MODEL_COMPLEX` | `qwen3:14b` | Complex-model target for `--auto-model` |
 | `CHAPTER_TEMP` | `0.15` | Temperature used by chapter explainer pipeline |
 | `CHAPTER_TOP_P` | `0.75` | Top-p used by chapter explainer pipeline |

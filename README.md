@@ -23,10 +23,13 @@ docker compose -f infra/docker-compose.yml up -d
 # 2. Install dependencies
 npm install
 
-# 3. Run the full ingestion pipeline
+# 3. Run the base ingestion pipeline
 npm run ingest:rebuild
 
-# 4. Start the server
+# 4. (Optional) build the client bundle served by Fastify
+npm run build:client
+
+# 5. Start the server
 npm start
 ```
 
@@ -35,21 +38,29 @@ npm start
 | Command | Description |
 |---|---|
 | `npm start` | Start the Fastify server |
+| `npm run dev:client` | Start the Vite client dev server |
+| `npm run build:client` | Build client assets to `client/dist` |
 | `npm test` | Run all tests (Vitest) |
 | `npm run search "<query>"` | Semantic search from the CLI (supports `--translations=PT1911`) |
-| `npm run ingest:rebuild` | Run the full ingestion pipeline (USFM -> Postgres -> pgvector) |
+| `npm run ingest:rebuild` | Run the default rebuild pipeline (`001 -> 003 -> 004 -> 005`, WEBU) |
 | `npm run ingest:destroy` | Wipe all ingested data (keeps containers running) |
 | `npm run ingest:entities:openbible` | Load OpenBible ancient places into entity tables |
 | `npm run ingest:entities:openbible:full` | Load normalized OpenBible full bundle (`openbible_*`) |
 | `npm run ingest:entities:hitchcock` | Load Hitchcock names and merge/create entities |
+| `npm run ingest:entities:person-refs` | Backfill person `entity_verses` links from verse text |
 | `npm run ingest:entities:enrich:meta` | LLM metadata enrichment for entities |
 | `npm run ingest:entities:enrich:desc` | LLM description enrichment for entities |
+| `npm run ingest:entities:export` | Export entity JSONL batches to `ingest/out/entities` |
 | `npm run ingest:chapters:explain` | Generate chapter explanations with Ollama |
 
 ## Project Structure
 
 ```text
 scriptorium/
+  client/
+    src/                  # Vue frontend
+    dist/                 # Built client bundle served by Fastify
+    package.json
   infra/
     docker-compose.yml    # Postgres with pgvector
   ingest/
@@ -80,6 +91,12 @@ scriptorium/
 
 ## API
 
+### Health
+
+```bash
+curl localhost:3000/health
+```
+
 ### Semantic Search
 
 ```bash
@@ -104,6 +121,9 @@ curl localhost:3000/api/books?translation=WEBU
 
 # Full chapter
 curl localhost:3000/api/chapters/GEN/1?translation=WEBU
+
+# Chapter context (LLM explanation + linked entities)
+curl localhost:3000/api/chapters/GEN/1/context?translation=WEBU
 
 # Verse range
 curl localhost:3000/api/verses/GEN/1/1/3?translation=WEBU
