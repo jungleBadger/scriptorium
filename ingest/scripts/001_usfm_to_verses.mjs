@@ -14,14 +14,34 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
 
 function ensureDir(p) {
     fs.mkdirSync(p, { recursive: true });
 }
 
-function normalizeWhitespace(s) {
+export function normalizeWhitespace(s) {
     return String(s || "").replace(/\s+/g, " ").trim();
+}
+
+function stripUsfmNoteBlocks(s) {
+    let x = String(s || "");
+
+    // Remove inline note/cross-reference payloads entirely.
+    // Examples:
+    //   \f + \fr 5:2 \ft note...\f*
+    //   \x + \xo 5:7 \xt Ezra 2:1\x*
+    x = x.replace(/\\f\b[\s\S]*?\\f\*/gi, " ");
+    x = x.replace(/\\fe\b[\s\S]*?\\fe\*/gi, " ");
+    x = x.replace(/\\x\b[\s\S]*?\\x\*/gi, " ");
+
+    // Best-effort: if a malformed note block is left unclosed, drop the tail.
+    x = x.replace(/\\f\b[\s\S]*$/gi, " ");
+    x = x.replace(/\\fe\b[\s\S]*$/gi, " ");
+    x = x.replace(/\\x\b[\s\S]*$/gi, " ");
+
+    return x;
 }
 
 /**
@@ -31,8 +51,10 @@ function normalizeWhitespace(s) {
  * - Generic inline markers like \wj, \add, \nd, \it, etc.
  * - Any leftover backslash markers best-effort
  */
-function cleanUsfmInline(s) {
+export function cleanUsfmInline(s) {
     let x = String(s || "");
+
+    x = stripUsfmNoteBlocks(x);
 
     // Remove Strong's tags like |strong="H8064"
     x = x.replace(/\|strong="[^"]*"/g, "");
@@ -121,7 +143,7 @@ function makeRef({ translation, book_id, chapter, verse_raw }) {
  * Parse a single USFM file into verse records.
  * Keeps raw text (joined) and a cleaned version.
  */
-function parseUsfmToVerseRecords(usfmText, { translation, sourceFile }) {
+export function parseUsfmToVerseRecords(usfmText, { translation, sourceFile }) {
     const lines = usfmText.split(/\r?\n/);
 
     let bookId = null;
@@ -206,7 +228,7 @@ function parseUsfmToVerseRecords(usfmText, { translation, sourceFile }) {
     return out;
 }
 
-function main() {
+export function main() {
     const zipPath = process.argv[2] || path.join("data", "engwebu_usfm.zip");
     const outDir = process.argv[3] || "out";
     const translation = process.argv[4] || "WEBU";
@@ -253,4 +275,13 @@ function main() {
     console.log(`Wrote: ${outNdjsonPath}`);
 }
 
-main();
+function isDirectRun() {
+    if (!process.argv[1]) return false;
+    const entry = path.resolve(process.argv[1]).toLowerCase();
+    const self = fileURLToPath(import.meta.url).toLowerCase();
+    return entry === self;
+}
+
+if (isDirectRun()) {
+    main();
+}

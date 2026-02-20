@@ -42,7 +42,16 @@ async function main() {
             text_raw, text_clean, source_file, ordinal
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-            ON CONFLICT (ref) DO NOTHING
+            ON CONFLICT (ref) DO UPDATE SET
+                translation = EXCLUDED.translation,
+                book_id = EXCLUDED.book_id,
+                chapter = EXCLUDED.chapter,
+                verse = EXCLUDED.verse,
+                verse_raw = EXCLUDED.verse_raw,
+                text_raw = EXCLUDED.text_raw,
+                text_clean = EXCLUDED.text_clean,
+                source_file = EXCLUDED.source_file,
+                ordinal = EXCLUDED.ordinal
   `;
 
     const rl = readline.createInterface({
