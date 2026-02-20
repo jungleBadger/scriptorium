@@ -55,18 +55,19 @@ export async function getMaxChapter(translation, bookId) {
  */
 export function computeNav(bookId, chapter, maxChapter) {
   const idx = BOOK_ORDER.findIndex((b) => b.book_id === bookId);
+  const isKnownBook = idx >= 0;
 
   let prev = null;
   if (chapter > 1) {
     prev = { book_id: bookId, chapter: chapter - 1 };
-  } else if (idx > 0) {
+  } else if (isKnownBook && idx > 0) {
     prev = { book_id: BOOK_ORDER[idx - 1].book_id, chapter: null };
   }
 
   let next = null;
   if (maxChapter != null && chapter < maxChapter) {
     next = { book_id: bookId, chapter: chapter + 1 };
-  } else if (idx < BOOK_ORDER.length - 1) {
+  } else if (isKnownBook && idx < BOOK_ORDER.length - 1) {
     next = { book_id: BOOK_ORDER[idx + 1].book_id, chapter: null };
   }
 

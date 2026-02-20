@@ -18,35 +18,44 @@ beforeEach(() => mockQuery.mockReset());
 
 describe("searchEntities", () => {
   it("passes ILIKE prefix and default limit/offset", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
 
     await searchEntities("Jeru");
 
-    expect(mockQuery).toHaveBeenCalledOnce();
-    const [sql, params] = mockQuery.mock.calls[0];
+    expect(mockQuery).toHaveBeenCalledTimes(2);
+    const [sql, params] = mockQuery.mock.calls[1];
     expect(params).toEqual(["Jeru%", 20, 0]);
     expect(sql).toContain("ILIKE $1");
-    expect(sql).not.toContain("$4"); // no type filter
+    expect(sql).toContain("LIMIT $2 OFFSET $3");
   });
 
   it("adds type filter when type is provided", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
 
     await searchEntities("Ab", { type: "person", limit: 5, offset: 10 });
 
-    const [sql, params] = mockQuery.mock.calls[0];
-    expect(params).toEqual(["Ab%", 5, 10, "person%"]);
-    expect(sql).toContain("ILIKE $4");
+    const [countSql, countParams] = mockQuery.mock.calls[0];
+    const [dataSql, dataParams] = mockQuery.mock.calls[1];
+    expect(countParams).toEqual(["Ab%", "person%"]);
+    expect(dataParams).toEqual(["Ab%", "person%", 5, 10]);
+    expect(countSql).toContain("e.type ILIKE $2");
+    expect(dataSql).toContain("LIMIT $3 OFFSET $4");
   });
 
   it("returns rows from the query", async () => {
     const fakeRows = [
       { id: 1, canonical_name: "Jerusalem", aliases: ["Jerusalem", "Jebus"] },
     ];
-    mockQuery.mockResolvedValueOnce({ rows: fakeRows });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: 1 }] })
+      .mockResolvedValueOnce({ rows: fakeRows });
 
     const result = await searchEntities("Jeru");
-    expect(result).toEqual(fakeRows);
+    expect(result).toEqual({ total: 1, results: fakeRows });
   });
 });
 

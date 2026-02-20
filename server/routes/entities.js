@@ -21,6 +21,12 @@ const geoSchema = {
     type: "object",
     properties: {
       type: { type: "string", maxLength: 50 },
+      minLon: { type: "number", minimum: -180, maximum: 180 },
+      maxLon: { type: "number", minimum: -180, maximum: 180 },
+      minLat: { type: "number", minimum: -90, maximum: 90 },
+      maxLat: { type: "number", minimum: -90, maximum: 90 },
+      limit: { type: "integer", minimum: 1, maximum: 5000, default: 1000 },
+      offset: { type: "integer", minimum: 0, default: 0 },
     },
   },
 };
@@ -51,15 +57,53 @@ export default async function entityRoutes(app) {
   // GET /api/entities?q=&type=&limit=20&offset=0
   app.get("/api/entities", { schema: searchSchema }, async (req, reply) => {
     const { q, type, limit, offset } = req.query;
-    const results = await searchEntities(q, { type, limit, offset });
-    return { query: q, total: results.length, results };
+    const { total, results } = await searchEntities(q, { type, limit, offset });
+    return {
+      query: q,
+      total,
+      limit,
+      offset,
+      has_more: offset + results.length < total,
+      results,
+    };
   });
 
-  // GET /api/entities/geo?type=
-  app.get("/api/entities/geo", { schema: geoSchema }, async (req) => {
-    const { type } = req.query;
-    const results = await getGeoEntities({ type });
-    return { total: results.length, results };
+  // GET /api/entities/geo?type=&minLon=&maxLon=&minLat=&maxLat=&limit=&offset=
+  app.get("/api/entities/geo", { schema: geoSchema }, async (req, reply) => {
+    const { type, minLon, maxLon, minLat, maxLat, limit, offset } = req.query;
+
+    const bounds = [minLon, maxLon, minLat, maxLat];
+    const hasAnyBounds = bounds.some((value) => value != null);
+    const hasAllBounds = bounds.every((value) => value != null);
+    if (hasAnyBounds && !hasAllBounds) {
+      reply.status(400).send({
+        error: "Bounding-box filter requires minLon, maxLon, minLat, and maxLat.",
+      });
+      return;
+    }
+    if (hasAllBounds && (minLon > maxLon || minLat > maxLat)) {
+      reply.status(400).send({
+        error: "Bounding-box values must satisfy minLon <= maxLon and minLat <= maxLat.",
+      });
+      return;
+    }
+
+    const { total, results } = await getGeoEntities({
+      type,
+      minLon,
+      maxLon,
+      minLat,
+      maxLat,
+      limit,
+      offset,
+    });
+    return {
+      total,
+      limit,
+      offset,
+      has_more: offset + results.length < total,
+      results,
+    };
   });
 
   // GET /api/entities/by-verse/:bookId/:chapter/:verse

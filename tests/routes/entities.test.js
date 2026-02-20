@@ -8,6 +8,7 @@ vi.mock("../../server/services/entitiesRepo.js", () => ({
   searchEntities: vi.fn(),
   getEntityById: vi.fn(),
   getEntitiesByVerse: vi.fn(),
+  getGeoEntities: vi.fn(),
 }));
 
 import entityRoutes from "../../server/routes/entities.js";
@@ -34,7 +35,7 @@ describe("GET /api/entities", () => {
     const fakeResults = [
       { id: 1, canonical_name: "Jerusalem", aliases: ["Jerusalem"] },
     ];
-    searchEntities.mockResolvedValueOnce(fakeResults);
+    searchEntities.mockResolvedValueOnce({ total: 1, results: fakeResults });
 
     const res = await app.inject({
       method: "GET",
@@ -45,6 +46,9 @@ describe("GET /api/entities", () => {
     const body = res.json();
     expect(body.query).toBe("Jeru");
     expect(body.total).toBe(1);
+    expect(body.limit).toBe(20);
+    expect(body.offset).toBe(0);
+    expect(body.has_more).toBe(false);
     expect(body.results).toEqual(fakeResults);
     expect(searchEntities).toHaveBeenCalledWith("Jeru", {
       type: undefined,
@@ -54,7 +58,7 @@ describe("GET /api/entities", () => {
   });
 
   it("passes type, limit, offset to repo", async () => {
-    searchEntities.mockResolvedValueOnce([]);
+    searchEntities.mockResolvedValueOnce({ total: 0, results: [] });
 
     await app.inject({
       method: "GET",

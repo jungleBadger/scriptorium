@@ -2,6 +2,7 @@
 // Chapter reader and verse range endpoints.
 
 import { getChapter, getVerseRange, getMaxChapter, computeNav } from "../services/versesRepo.js";
+import { getChapterExplanation, getChapterEntities } from "../services/chaptersRepo.js";
 
 const chapterSchema = {
   params: {
@@ -39,7 +40,46 @@ const verseRangeSchema = {
   },
 };
 
+const chapterContextSchema = {
+  params: {
+    type: "object",
+    properties: {
+      bookId: { type: "string" },
+      chapter: { type: "integer", minimum: 1 },
+    },
+    required: ["bookId", "chapter"],
+  },
+  querystring: {
+    type: "object",
+    properties: {
+      translation: { type: "string", maxLength: 10, default: "WEBU" },
+    },
+  },
+};
+
 export default async function chapterRoutes(app) {
+  // GET /api/chapters/:bookId/:chapter/context
+  // Returns enriched chapter data: LLM explanation, linked entities (with
+  // thumbnails and per-verse presence), and related verse cross-references.
+  // Registered before :bookId/:chapter to avoid route shadowing.
+  app.get("/api/chapters/:bookId/:chapter/context", { schema: chapterContextSchema }, async (req, reply) => {
+    const { bookId, chapter } = req.params;
+    const { translation } = req.query;
+
+    const [explanation, entities] = await Promise.all([
+      getChapterExplanation(translation, bookId, chapter),
+      getChapterEntities(bookId, chapter),
+    ]);
+
+    return {
+      book_id: bookId,
+      chapter,
+      translation,
+      explanation,
+      entities,
+    };
+  });
+
   // GET /api/chapters/:bookId/:chapter
   app.get("/api/chapters/:bookId/:chapter", { schema: chapterSchema }, async (req, reply) => {
     const { bookId, chapter } = req.params;

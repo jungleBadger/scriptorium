@@ -33,26 +33,55 @@ describe("GET /api/entities/geo", () => {
     const fakeResults = [
       { id: 1, canonical_name: "Jerusalem", type: "place.settlement", lon: 35.23, lat: 31.78 },
     ];
-    getGeoEntities.mockResolvedValueOnce(fakeResults);
+    getGeoEntities.mockResolvedValueOnce({ total: 1, results: fakeResults });
 
     const res = await app.inject({ method: "GET", url: "/api/entities/geo" });
 
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.total).toBe(1);
+    expect(body.limit).toBe(1000);
+    expect(body.offset).toBe(0);
+    expect(body.has_more).toBe(false);
     expect(body.results).toEqual(fakeResults);
-    expect(getGeoEntities).toHaveBeenCalledWith({ type: undefined });
+    expect(getGeoEntities).toHaveBeenCalledWith({
+      type: undefined,
+      minLon: undefined,
+      maxLon: undefined,
+      minLat: undefined,
+      maxLat: undefined,
+      limit: 1000,
+      offset: 0,
+    });
   });
 
-  it("passes type filter to repo", async () => {
-    getGeoEntities.mockResolvedValueOnce([]);
+  it("passes type and bbox filters to repo", async () => {
+    getGeoEntities.mockResolvedValueOnce({ total: 0, results: [] });
 
     await app.inject({
       method: "GET",
-      url: "/api/entities/geo?type=place.settlement",
+      url: "/api/entities/geo?type=place.settlement&minLon=35&maxLon=36&minLat=31&maxLat=32&limit=50&offset=10",
     });
 
-    expect(getGeoEntities).toHaveBeenCalledWith({ type: "place.settlement" });
+    expect(getGeoEntities).toHaveBeenCalledWith({
+      type: "place.settlement",
+      minLon: 35,
+      maxLon: 36,
+      minLat: 31,
+      maxLat: 32,
+      limit: 50,
+      offset: 10,
+    });
+  });
+
+  it("returns 400 when bbox is incomplete", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/entities/geo?minLon=35&maxLon=36",
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toContain("Bounding-box filter requires");
   });
 });
 

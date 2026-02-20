@@ -17,34 +17,53 @@ beforeEach(() => mockQuery.mockReset());
 
 describe("getGeoEntities", () => {
   it("queries entities with coordinates", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
 
     await getGeoEntities();
 
-    const [sql, params] = mockQuery.mock.calls[0];
+    const [sql, params] = mockQuery.mock.calls[1];
     expect(sql).toContain("lon IS NOT NULL");
     expect(sql).toContain("lat IS NOT NULL");
-    expect(params).toEqual([]);
+    expect(sql).toContain("LIMIT $1 OFFSET $2");
+    expect(params).toEqual([1000, 0]);
   });
 
-  it("adds type filter when provided", async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+  it("adds type and bbox filters when provided", async () => {
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
 
-    await getGeoEntities({ type: "place.settlement" });
+    await getGeoEntities({
+      type: "place.settlement",
+      minLon: 35,
+      maxLon: 36,
+      minLat: 31,
+      maxLat: 32,
+      limit: 50,
+      offset: 10,
+    });
 
-    const [sql, params] = mockQuery.mock.calls[0];
-    expect(sql).toContain("ILIKE $1");
-    expect(params).toEqual(["place.settlement%"]);
+    const [countSql, countParams] = mockQuery.mock.calls[0];
+    const [dataSql, dataParams] = mockQuery.mock.calls[1];
+    expect(countSql).toContain("type ILIKE $1");
+    expect(dataSql).toContain("lon BETWEEN $2 AND $3");
+    expect(dataSql).toContain("lat BETWEEN $4 AND $5");
+    expect(countParams).toEqual(["place.settlement%", 35, 36, 31, 32]);
+    expect(dataParams).toEqual(["place.settlement%", 35, 36, 31, 32, 50, 10]);
   });
 
   it("returns rows from query", async () => {
     const fakeRows = [
       { id: 1, canonical_name: "Jerusalem", type: "place.settlement", lon: 35.23, lat: 31.78 },
     ];
-    mockQuery.mockResolvedValueOnce({ rows: fakeRows });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ total: 1 }] })
+      .mockResolvedValueOnce({ rows: fakeRows });
 
     const result = await getGeoEntities();
-    expect(result).toEqual(fakeRows);
+    expect(result).toEqual({ total: 1, results: fakeRows });
   });
 });
 

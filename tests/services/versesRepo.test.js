@@ -92,4 +92,10 @@ describe("computeNav", () => {
     const { next } = computeNav("REV", 22, 22);
     expect(next).toBeNull();
   });
+
+  it("does not jump to Genesis for unknown books at chapter boundary", () => {
+    const { prev, next } = computeNav("4MA", 18, 18);
+    expect(prev).toEqual({ book_id: "4MA", chapter: 17 });
+    expect(next).toBeNull();
+  });
 });

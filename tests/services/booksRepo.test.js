@@ -50,4 +50,23 @@ describe("getBooks", () => {
     expect(result).toHaveLength(1);
     expect(result[0].book_id).toBe("GEN");
   });
+
+  it("includes deuterocanonical books not in BOOK_ORDER", async () => {
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        { book_id: "4MA", chapters: "18" },
+        { book_id: "EXO", chapters: "40" },
+        { book_id: "GEN", chapters: "50" },
+      ],
+    });
+
+    const result = await getBooks("WEBU");
+    expect(result.map((b) => b.book_id)).toEqual(["GEN", "EXO", "4MA"]);
+    expect(result[2]).toEqual({
+      book_id: "4MA",
+      name: "4 Maccabees",
+      chapters: 18,
+      testament: "DC",
+    });
+  });
 });

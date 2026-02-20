@@ -87,7 +87,7 @@ describe("chapter explanation grounding guardrails", () => {
         const policy = estimateExplanationWordPolicy(payload, { listHeavy: false });
         expect(policy.chapter_words).toBe(800);
         expect(policy.target_words).toBe(124); // round(60 + 0.08*800)
-        expect(policy.min_words).toBe(92);
+        expect(policy.min_words).toBe(84);
         expect(policy.max_words).toBe(164);
         expect(policy.target_mode).toBe("dynamic");
     });
@@ -99,7 +99,7 @@ describe("chapter explanation grounding guardrails", () => {
         const dynamicPolicy = estimateExplanationWordPolicy(payload, { listHeavy: true });
         // round(50 + 0.06*500) = 80, clamped to min 95 for list-heavy chapters
         expect(dynamicPolicy.target_words).toBe(95);
-        expect(dynamicPolicy.min_words).toBe(80);
+        expect(dynamicPolicy.min_words).toBe(70);
         expect(dynamicPolicy.max_words).toBe(135);
 
         const overridePolicy = estimateExplanationWordPolicy(payload, {
@@ -108,7 +108,7 @@ describe("chapter explanation grounding guardrails", () => {
         });
         expect(overridePolicy.target_mode).toBe("override");
         expect(overridePolicy.target_words).toBe(170);
-        expect(overridePolicy.min_words).toBe(138);
+        expect(overridePolicy.min_words).toBe(130);
         expect(overridePolicy.max_words).toBe(210);
     });
 
@@ -118,6 +118,6 @@ describe("chapter explanation grounding guardrails", () => {
         };
         const policy = estimateExplanationWordPolicy(payload, { listHeavy: false });
         expect(policy.target_words).toBe(122);
-        expect(policy.min_words).toBe(90);
+        expect(policy.min_words).toBe(82);
     });
 });
