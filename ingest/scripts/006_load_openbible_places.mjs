@@ -1,18 +1,35 @@
-// ingest/scripts/load_openbible_places.mjs
+// ingest/scripts/006_load_openbible_places.mjs
 // Loads OpenBible Geodata (ancient.jsonl) into the entities tables.
 //
 // Usage:
-//   node ingest/scripts/load_openbible_places.mjs ingest/data/ancient.jsonl
+//   node ingest/scripts/006_load_openbible_places.mjs ingest/data/ancient.jsonl
 
 import fs from "node:fs";
 import readline from "node:readline";
 import { Client } from "pg";
-import { parseUsx } from "./osis_book_map.mjs";
+import { parseUsx } from "./015_osis_book_map.mjs";
+
+function parseLonLat(rawLonLat) {
+    if (typeof rawLonLat !== "string" || !rawLonLat.includes(",")) {
+        return null;
+    }
+
+    const [lonStr, latStr] = rawLonLat.split(",", 2);
+    const lon = Number.parseFloat(lonStr);
+    const lat = Number.parseFloat(latStr);
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+        return null;
+    }
+    if (lon < -180 || lon > 180 || lat < -90 || lat > 90) {
+        return null;
+    }
+    return { lon, lat };
+}
 
 async function main() {
     const input = process.argv[2];
     if (!input || !fs.existsSync(input)) {
-        console.error("Usage: node load_openbible_places.mjs <ancient.jsonl>");
+        console.error("Usage: node ingest/scripts/006_load_openbible_places.mjs <ancient.jsonl>");
         process.exit(1);
     }
 
@@ -70,6 +87,7 @@ async function main() {
     let entityCount = 0;
     let aliasCount = 0;
     let verseCount = 0;
+    let invalidCoordCount = 0;
 
     for await (const line of rl) {
         const t = line.trim();
@@ -88,9 +106,13 @@ async function main() {
         if (idents.length > 0) {
             const resolutions = idents[0].resolutions || [];
             if (resolutions.length > 0 && resolutions[0].lonlat) {
-                const [lonStr, latStr] = resolutions[0].lonlat.split(",");
-                lon = parseFloat(lonStr);
-                lat = parseFloat(latStr);
+                const parsed = parseLonLat(resolutions[0].lonlat);
+                if (parsed) {
+                    lon = parsed.lon;
+                    lat = parsed.lat;
+                } else {
+                    invalidCoordCount++;
+                }
             }
         }
 
@@ -137,7 +159,7 @@ async function main() {
     await client.query("COMMIT");
     await client.end();
 
-    console.log(`Done. Entities: ${entityCount}, Aliases: ${aliasCount}, Verse refs: ${verseCount}`);
+    console.log(`Done. Entities: ${entityCount}, Aliases: ${aliasCount}, Verse refs: ${verseCount}, Invalid coords: ${invalidCoordCount}`);
 }
 
 main().catch((e) => {

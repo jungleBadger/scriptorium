@@ -12,6 +12,7 @@ npm run ingest:rebuild
 npm run ingest:entities:openbible
 npm run ingest:entities:openbible:full
 npm run ingest:entities:hitchcock
+npm run ingest:entities:person-refs
 
 # Chapter explanation enrichment (offline LLM pipeline)
 npm run ingest:chapters:explain
@@ -27,13 +28,13 @@ npm run ingest:destroy
 **USFM format (e.g., WEBU):**
 
 ```bash
-node ingest/scripts/usfm_to_verses.mjs ingest/data/engwebu_usfm.zip ingest/out WEBU
+node ingest/scripts/001_usfm_to_verses.mjs ingest/data/engwebu_usfm.zip ingest/out WEBU
 ```
 
 **USFX format (e.g., PT1911):**
 
 ```bash
-node ingest/scripts/usfx_to_verses.mjs ingest/data/por-almeida.usfx.xml ingest/out PT1911
+node ingest/scripts/002_usfx_to_verses.mjs ingest/data/por-almeida.usfx.xml ingest/out PT1911
 ```
 
 Writes `ingest/out/verses.ndjson` with one JSON record per verse containing `ref`, `translation`, `book_id`, `chapter`, `verse`, `verse_raw`, `text_raw`, `text_clean`, `source_file`, and `ordinal`.
@@ -41,7 +42,7 @@ Writes `ingest/out/verses.ndjson` with one JSON record per verse containing `ref
 ### 2. Load Verses into Postgres
 
 ```bash
-node ingest/scripts/load_verses_to_postgres.mjs ingest/out/verses.ndjson
+node ingest/scripts/003_load_verses_to_postgres.mjs ingest/out/verses.ndjson
 ```
 
 Inserts verse records into the `verses` table. Uses `ON CONFLICT (ref) DO NOTHING` so reruns are safe.
@@ -49,7 +50,7 @@ Inserts verse records into the `verses` table. Uses `ON CONFLICT (ref) DO NOTHIN
 ### 3. Generate Chunks
 
 ```bash
-node ingest/scripts/generate_chunks.mjs 3 1
+node ingest/scripts/004_generate_chunks.mjs 3 1
 ```
 
 Creates overlapping 3-verse windows (stride 1) within each chapter, scoped per translation. Writes to the `chunks` table. Truncates existing chunks before inserting so reruns are idempotent.
@@ -57,7 +58,7 @@ Creates overlapping 3-verse windows (stride 1) within each chapter, scoped per t
 ### 4. Embed Chunks to Postgres (pgvector)
 
 ```bash
-node ingest/scripts/embed_chunks.mjs
+node ingest/scripts/005_embed_chunks.mjs
 ```
 
 Reads chunks from Postgres, generates embeddings using `paraphrase-multilingual-MiniLM-L12-v2`, and writes them back to the `chunks.embedding` column (pgvector `vector(384)` with HNSW cosine index). Migration: `ingest/sql/003_embeddings.sql`.
@@ -119,6 +120,32 @@ Parses `ingest/data/HitchcocksBibleNamesDictionary.csv` (~2,623 names). Merges w
 
 **Run order:** OpenBible first (provides base place entities), then Hitchcock (enriches and extends).
 
+### 7.25 Backfill Person Verse References (Additive)
+
+```bash
+npm run ingest:entities:person-refs
+node ingest/scripts/018_backfill_person_verse_refs.mjs --translation WEBU --apply
+```
+
+Creates missing `entity_verses` links for `person` entities by matching name forms against verse text. Safety properties:
+- Insert-only (`ON CONFLICT DO NOTHING`)
+- No updates to `entities`, `entity_aliases`, or existing `entity_verses`
+- Dry-run by default (add `--apply` to write)
+
+### 7.5 Import Rich Entity Descriptions
+
+If you generated `ingest/data/entities_enriched.jsonl` externally, import it with:
+
+```bash
+npm run ingest:entities:enrich:desc
+```
+
+Importer resolution order is:
+1. `source + source_id` (stable, preferred)
+2. `canonical_name + type`
+3. unique `canonical_name`
+4. legacy `id` (local DB only)
+
 ## Chapter Explanation Enrichment
 
 Generates one chapter-level explanation per chapter using local Ollama and stores results in `chapter_explanations`.
@@ -133,10 +160,10 @@ Targeted examples:
 
 ```bash
 # Single chapter
-node ingest/scripts/enrich_chapters_explanation_ollama.mjs --translation WEBU --book GEN --chapter 1 --force
+node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --translation WEBU --book GEN --chapter 1 --force
 
 # First 20 chapters for PT1911
-node ingest/scripts/enrich_chapters_explanation_ollama.mjs --translation PT1911 --limit 20
+node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --translation PT1911 --limit 20
 ```
 
 Prompt template:
@@ -147,10 +174,10 @@ Useful options:
 
 ```bash
 # Auto model routing (simple/complex) based on chapter complexity
-node ingest/scripts/enrich_chapters_explanation_ollama.mjs --auto-model
+node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --auto-model
 
 # Override generation limits
-node ingest/scripts/enrich_chapters_explanation_ollama.mjs --num-predict 850 --word-target 220
+node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --num-predict 850 --word-target 220
 ```
 
 Validation and retry behavior:
@@ -177,7 +204,7 @@ Validation and retry behavior:
 | `CHAPTER_MODEL_COMPLEX` | `qwen3:14b` | Complex-model target for `--auto-model` |
 | `CHAPTER_TEMP` | `0.15` | Temperature used by chapter explainer pipeline |
 | `CHAPTER_TOP_P` | `0.75` | Top-p used by chapter explainer pipeline |
-| `CHAPTER_NUM_PREDICT` | `700` | Default max generated tokens |
+| `CHAPTER_NUM_PREDICT` | `900` | Default max generated tokens |
 | `CHAPTER_WORD_TARGET` | `220` | Prompt target word count |
 | `CHAPTER_PROMPT` | `ingest/prompts/chapter_explainer_prompt.txt` | Default prompt path |
 | `CHAPTER_PROMPT_SIMPLE` | `ingest/prompts/chapter_explainer_prompt_8b.txt` | Simple prompt path for `--auto-model` |

@@ -1,8 +1,8 @@
-// scripts/embed_chunks.mjs
+// ingest/scripts/005_embed_chunks.mjs
 // Embeds Postgres chunks and stores embeddings back into Postgres (pgvector).
 //
 // Run:
-//   node ingest/scripts/embed_chunks.mjs
+//   node ingest/scripts/005_embed_chunks.mjs
 //
 // Env defaults:
 //   PGHOST=localhost PGPORT=5432 PGUSER=bible PGPASSWORD=bible PGDATABASE=bible

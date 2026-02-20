@@ -21,7 +21,7 @@ const ingestDir = path.resolve(__dirname, "..");
 const steps = [
     {
         label: "Step 1/4: Parse USFM → NDJSON",
-        script: path.join(scriptsDir, "usfm_to_verses.mjs"),
+        script: path.join(scriptsDir, "001_usfm_to_verses.mjs"),
         args: [
             path.join(ingestDir, "data", "engwebu_usfm.zip"),
             path.join(ingestDir, "out"),
@@ -30,17 +30,17 @@ const steps = [
     },
     {
         label: "Step 2/4: Load verses into Postgres",
-        script: path.join(scriptsDir, "load_verses_to_postgres.mjs"),
+        script: path.join(scriptsDir, "003_load_verses_to_postgres.mjs"),
         args: [path.join(ingestDir, "out", "verses.ndjson")],
     },
     {
         label: "Step 3/4: Generate chunks",
-        script: path.join(scriptsDir, "generate_chunks.mjs"),
+        script: path.join(scriptsDir, "004_generate_chunks.mjs"),
         args: ["3", "1"],
     },
     {
         label: "Step 4/4: Embed chunks → Postgres (pgvector)",
-        script: path.join(scriptsDir, "embed_chunks.mjs"),
+        script: path.join(scriptsDir, "005_embed_chunks.mjs"),
         args: [],
     },
 ];

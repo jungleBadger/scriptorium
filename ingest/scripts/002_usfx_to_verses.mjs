@@ -1,8 +1,8 @@
-// ingest/scripts/usfx_to_verses.mjs
+// ingest/scripts/002_usfx_to_verses.mjs
 // USFX (XML) -> verses.ndjson (milestone <v id=".."/> supported)
 //
 // Usage:
-//   node ingest/scripts/usfx_to_verses.mjs ingest/data/por-almeida-usfx.xml ingest/out PT1911
+//   node ingest/scripts/002_usfx_to_verses.mjs ingest/data/por-almeida.usfx.xml ingest/out PT1911
 
 import fs from "node:fs";
 import path from "node:path";
@@ -14,7 +14,7 @@ const translation = process.argv[4] || "PT1911";
 
 if (!inputPath || !outDir) {
     console.error(
-        "Usage: node ingest/scripts/usfx_to_verses.mjs <input.usfx.xml> <outDir> [translation]"
+        "Usage: node ingest/scripts/002_usfx_to_verses.mjs <input.usfx.xml> <outDir> [translation]"
     );
     process.exit(1);
 }

@@ -1,9 +1,9 @@
-// ingest/scripts/load_hitchcock_names.mjs
+// ingest/scripts/008_load_hitchcock_names.mjs
 // Loads Hitchcock's Bible Names Dictionary into the entities tables.
 // Merges with existing OpenBible entities when names match (case-insensitive).
 //
 // Usage:
-//   node ingest/scripts/load_hitchcock_names.mjs ingest/data/HitchcocksBibleNamesDictionary.csv
+//   node ingest/scripts/008_load_hitchcock_names.mjs ingest/data/HitchcocksBibleNamesDictionary.csv
 
 import fs from "node:fs";
 import readline from "node:readline";
@@ -12,7 +12,7 @@ import { Client } from "pg";
 async function main() {
     const input = process.argv[2];
     if (!input || !fs.existsSync(input)) {
-        console.error("Usage: node load_hitchcock_names.mjs <HitchcocksBibleNamesDictionary.csv>");
+        console.error("Usage: node ingest/scripts/008_load_hitchcock_names.mjs <HitchcocksBibleNamesDictionary.csv>");
         process.exit(1);
     }
 

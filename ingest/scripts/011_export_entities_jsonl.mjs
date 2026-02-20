@@ -1,8 +1,8 @@
-// ingest/scripts/export_entities_jsonl.mjs
+// ingest/scripts/011_export_entities_jsonl.mjs
 // Exports all entities as JSONL files, split into batches.
 //
 // Usage:
-//   node ingest/scripts/export_entities_jsonl.mjs <output_dir> [--batch-size N]
+//   node ingest/scripts/011_export_entities_jsonl.mjs <output_dir> [--batch-size N]
 //
 // Creates files like: <output_dir>/entities_001.jsonl, entities_002.jsonl, ...
 // Default batch size: 300 rows per file.
@@ -19,7 +19,7 @@ const BATCH_SIZE = (() => {
 async function main() {
     const outDir = process.argv[2];
     if (!outDir) {
-        console.error("Usage: node export_entities_jsonl.mjs <output_dir> [--batch-size N]");
+        console.error("Usage: node ingest/scripts/011_export_entities_jsonl.mjs <output_dir> [--batch-size N]");
         process.exit(1);
     }
 

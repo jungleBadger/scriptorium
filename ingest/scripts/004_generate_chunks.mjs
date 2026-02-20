@@ -1,9 +1,9 @@
-// scripts/generate_chunks.mjs
+// ingest/scripts/004_generate_chunks.mjs
 // Build overlapping chunks (window=3, stride=1) within each chapter.
 // Uses verses.text_clean. Writes into Postgres table `chunks`.
 //
 // Usage:
-//   node scripts/generate_chunks.mjs 3 1
+//   node ingest/scripts/004_generate_chunks.mjs 3 1
 //
 // Env (defaults):
 //   PGHOST=localhost PGPORT=5432 PGUSER=bible PGPASSWORD=bible PGDATABASE=bible

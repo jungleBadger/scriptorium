@@ -1,4 +1,4 @@
-// scripts/load_verses_to_postgres.mjs
+// ingest/scripts/003_load_verses_to_postgres.mjs
 import fs from "node:fs";
 import readline from "node:readline";
 import { Client } from "pg";

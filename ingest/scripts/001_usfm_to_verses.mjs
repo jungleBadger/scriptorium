@@ -1,9 +1,9 @@
-// scripts/usfm_to_verses.mjs
+// ingest/scripts/001_usfm_to_verses.mjs
 // Convert WEB USFM (zip) -> NDJSON verses (one JSON per line).
 // Outputs both text_raw and text_clean.
 //
 // Usage:
-//   node scripts/usfm_to_verses.mjs data/engwebu_usfm.zip out WEBU
+//   node ingest/scripts/001_usfm_to_verses.mjs ingest/data/engwebu_usfm.zip ingest/out WEBU
 //
 // Output: out/verses.ndjson
 // Record shape:
