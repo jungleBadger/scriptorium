@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import {
+  ask,
   getBooks,
   getChapter,
   getChapterContext,
@@ -10,9 +11,101 @@ import {
 } from "./services/api.js";
 import ReaderPane from "./components/ReaderPane.vue";
 import ContextPane from "./components/ContextPane.vue";
+import LibrarySidebar from "./components/LibrarySidebar.vue";
+import DrawerShell from "./components/DrawerShell.vue";
+import { useBreakpoint } from "./composables/useBreakpoint.js";
 import { PT_BR_BOOK_NAMES } from "./data/bookNamesPtBr.js";
 
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
+
+// ── Breakpoints ────────────────────────────────────────────────────────────
+const { isMobile, isTablet, isDesktop } = useBreakpoint();
+
+// ── Layout state ───────────────────────────────────────────────────────────
+const LS_LAYOUT = "scriptorium-layout";
+
+const libraryPinned  = ref(false); // true = Library shown as column (desktop/tablet)
+const insightsPinned = ref(true);  // true = Insights shown as column (desktop/tablet)
+const libraryOpen    = ref(false); // true = Library drawer open
+const insightsOpen   = ref(false); // true = Insights drawer open
+
+function loadLayoutPrefs() {
+  try {
+    const s = JSON.parse(localStorage.getItem(LS_LAYOUT) || "{}");
+    if (typeof s.libraryPinned  === "boolean") libraryPinned.value  = s.libraryPinned;
+    if (typeof s.insightsPinned === "boolean") insightsPinned.value = s.insightsPinned;
+  } catch {}
+}
+
+watch([libraryPinned, insightsPinned], () => {
+  localStorage.setItem(
+    LS_LAYOUT,
+    JSON.stringify({ libraryPinned: libraryPinned.value, insightsPinned: insightsPinned.value })
+  );
+});
+
+// ── Computed layout visibility ─────────────────────────────────────────────
+const showLibraryColumn = computed(() => {
+  if (isMobile.value) return false;
+  return libraryPinned.value;
+});
+
+const showInsightsColumn = computed(() => {
+  if (isMobile.value) return false;
+  if (!insightsPinned.value) return false;
+  // Tablet can show at most 2 columns: if library pinned, insights is drawer
+  if (isTablet.value && libraryPinned.value) return false;
+  return true;
+});
+
+const libraryDrawerOpen = computed(() => {
+  // Drawer not needed when column is shown
+  if (showLibraryColumn.value) return false;
+  return libraryOpen.value;
+});
+
+const insightsDrawerOpen = computed(() => {
+  if (showInsightsColumn.value) return false;
+  return insightsOpen.value;
+});
+
+const gridClass = computed(() => {
+  const lib = showLibraryColumn.value;
+  const ins = showInsightsColumn.value;
+  if (lib && ins)  return "workspace-grid--3col";
+  if (lib && !ins) return "workspace-grid--lib-reader";
+  if (!lib && ins) return "workspace-grid--reader-ins";
+  return "workspace-grid--reader";
+});
+
+// Track active (pressed) state for toggle buttons
+const libraryActive = computed(() => showLibraryColumn.value || libraryDrawerOpen.value);
+const insightsActive = computed(() => showInsightsColumn.value || insightsDrawerOpen.value);
+
+// ── Toggle handlers ────────────────────────────────────────────────────────
+function onToggleLibrary() {
+  if (isDesktop.value) {
+    libraryPinned.value = !libraryPinned.value;
+    if (!libraryPinned.value) libraryOpen.value = false;
+  } else {
+    libraryOpen.value = !libraryOpen.value;
+  }
+}
+
+function onToggleInsights() {
+  if (isDesktop.value || isTablet.value) {
+    insightsPinned.value = !insightsPinned.value;
+    if (!insightsPinned.value) insightsOpen.value = false;
+  } else {
+    insightsOpen.value = !insightsOpen.value;
+  }
+}
+
+function onInsightsClearContext() {
+  onClearContext();
+  // On mobile, also close the drawer
+  if (isMobile.value) insightsOpen.value = false;
+}
 
 // ── Reader state ──────────────────────────────────────────────────────────
 const translation = ref("WEBU");
@@ -25,8 +118,34 @@ const readerError = ref(null);
 const activeVerse = ref(null);
 const selectedEntityId = ref(null);
 
+// ── Reader settings ────────────────────────────────────────────────────────
+const readerSettings = reactive({ fontSize: 'md', lineSpacing: 'normal', font: 'serif', theme: 'light' });
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const root = document.documentElement;
+  const themes = {
+    light: { '--ink':'#1e1612','--muted':'#695e57','--paper':'#fff9f2','--card':'#fffdf8','--line':'#e7d7c6','--accent':'#ad3f2b','--accent-soft':'#f6d8c6' },
+    sepia: { '--ink':'#2c1f14','--muted':'#7a6250','--paper':'#f4ead8','--card':'#f9f2e2','--line':'#d9c9ae','--accent':'#8b3a20','--accent-soft':'#f0d8bf' },
+    dark:  { '--ink':'#e8ddd4','--muted':'#9e8e84','--paper':'#1a1614','--card':'#211e1b','--line':'#3a302a','--accent':'#d46e55','--accent-soft':'#3d241c' },
+  };
+  Object.entries(themes[theme] ?? themes.light).forEach(([k, v]) => root.style.setProperty(k, v));
+}
+
+function applySettingsCSSVars() {
+  const root = document.documentElement;
+  root.style.setProperty('--reader-font-size',  { sm:'0.95rem', md:'1.12rem', lg:'1.25rem', xl:'1.4rem' }[readerSettings.fontSize]);
+  root.style.setProperty('--reader-line-height', { normal:'1.9', relaxed:'2.15', loose:'2.5' }[readerSettings.lineSpacing]);
+  root.style.setProperty('--reader-font-family', readerSettings.font === 'sans' ? 'var(--ui)' : 'var(--reader)');
+  applyTheme(readerSettings.theme);
+}
+
+function onSettingsChange(updated) { Object.assign(readerSettings, updated); }
+
 // ── Search / explore options ───────────────────────────────────────────────
 const quickQuery = ref("");
+const isExploring = ref(false);
+const exploreError = ref(null);
 const showAdvanced = ref(false);
 const mode = ref("explorer");
 const topk = ref(8);
@@ -34,7 +153,6 @@ const includeDeutero = ref(true);
 const highlightEntities = ref(true);
 
 // ── Panel navigation stack ─────────────────────────────────────────────────
-// Each entry is a reactive view: { type, title, anchor, status, error, data }
 const panelStack = ref([]);
 const currentView = computed(() => panelStack.value[panelStack.value.length - 1] ?? null);
 const canGoBack = computed(() => panelStack.value.length > 1);
@@ -68,7 +186,6 @@ const activeVerseAnchorKey = computed(() => {
   if (activeVerse.value == null || !bookId.value) return null;
   return `${translation.value}:${bookId.value}:${chapter.value}:${activeVerse.value}`;
 });
-
 
 const selectedChapterEntity = computed(() => {
   if (!Number.isFinite(selectedEntityId.value)) return null;
@@ -134,10 +251,23 @@ const activeEntityHighlightTerms = computed(() => {
   return selectedEntityTerms.value;
 });
 
+const displayBooks = computed(() =>
+  books.value.map(b => ({ ...b, displayName: getDisplayBookName(b.book_id, b.name) }))
+);
+
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
+  loadLayoutPrefs();
+  const saved = localStorage.getItem('scriptorium-reader-settings');
+  if (saved) try { Object.assign(readerSettings, JSON.parse(saved)); } catch {}
+  applySettingsCSSVars();
   await initializeReader();
 });
+
+watch(readerSettings, () => {
+  localStorage.setItem('scriptorium-reader-settings', JSON.stringify({ ...readerSettings }));
+  applySettingsCSSVars();
+}, { deep: true });
 
 watch(translation, async (next, prev) => {
   if (next !== prev) await initializeReader();
@@ -204,7 +334,9 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     const firstVerse = verses[0]?.verse ?? null;
     let nextActiveVerse = null;
 
-    if (focusVerse != null) {
+    if (typeof focusVerse === "string" && focusVerse.toLowerCase() === "last") {
+      nextActiveVerse = verses[verses.length - 1]?.verse ?? firstVerse;
+    } else if (focusVerse != null) {
       nextActiveVerse = verses.some((v) => v.verse === focusVerse) ? focusVerse : firstVerse;
     } else if (activeVerse.value != null) {
       nextActiveVerse = verses.some((v) => v.verse === activeVerse.value) ? activeVerse.value : null;
@@ -330,9 +462,69 @@ async function runSearch(query, anchor, { includeEntities = true, prefetchedEnti
     view.query = passagePayload.query;
     view.mode = passagePayload.mode;
     view.includeDeutero = passagePayload.includeDeutero;
+    return true;
   } catch (err) {
     view.status = "error";
     view.error = err.message;
+    return false;
+  }
+}
+
+function getActiveEntityIdsForAsk() {
+  const selectedEntity = selectedEntitySource.value;
+  if (!selectedEntity) return [];
+
+  const ids = [];
+  const numericId = Number(selectedEntity.id);
+  if (Number.isFinite(numericId)) ids.push(String(numericId));
+
+  const typePrefix = String(selectedEntity.type || "entity").split(".")[0] || "entity";
+  const sourceId = String(selectedEntity.source_id || "").trim();
+  if (sourceId) ids.push(`${typePrefix}:${sourceId}`);
+
+  return [...new Set(ids)];
+}
+
+function getAskAnchorVerse() {
+  if (Number.isFinite(activeVerse.value)) return activeVerse.value;
+  const firstChapterVerse = Number(chapterData.value?.verses?.[0]?.verse);
+  return Number.isFinite(firstChapterVerse) ? firstChapterVerse : 1;
+}
+
+async function runAsk(query, anchor) {
+  const safePassages = Math.min(40, Math.max(1, Math.trunc(Number(topk.value) || 8)));
+  topk.value = safePassages;
+  const label = query.length > 28 ? `${query.slice(0, 28)}\u2026` : query;
+  const view = reactive({
+    type: "askResponse",
+    title: `\u201C${label}\u201D`,
+    anchor: anchor || buildAnchor(),
+    status: "loading",
+    error: null,
+    data: null,
+    query,
+  });
+  panelStack.value.push(view);
+
+  try {
+    const payload = await ask({
+      question: query,
+      translation: translation.value,
+      book: bookId.value,
+      chapter: chapter.value,
+      verse: getAskAnchorVerse(),
+      active_entity_ids: getActiveEntityIdsForAsk(),
+      k_entities: 12,
+      k_passages: safePassages,
+    });
+
+    view.status = "ready";
+    view.data = payload;
+    return true;
+  } catch (err) {
+    view.status = "error";
+    view.error = err.message;
+    return false;
   }
 }
 
@@ -379,6 +571,22 @@ async function onChapterChange(event) {
   await loadChapter(bookId.value, nextChapter, { focusVerse: rememberedVerse ?? 1 });
 }
 
+function onQuickQueryChange(value) {
+  quickQuery.value = value;
+  if (exploreError.value) exploreError.value = null;
+}
+
+async function onChapterStep(direction) {
+  if (readerLoading.value) return;
+  if (direction < 0 && chapterData.value?.prev) {
+    await onNavigate("prev");
+    return;
+  }
+  if (direction > 0 && chapterData.value?.next) {
+    await onNavigate("next");
+  }
+}
+
 function onVerseChange(event) {
   const value = event.target.value;
   if (!value) {
@@ -394,8 +602,66 @@ function onSelectVerse(verse) {
   activeVerse.value = activeVerse.value === verse ? null : verse;
 }
 
+function onActivateVerse(verse) {
+  const verseNumber = Number(verse);
+  if (!Number.isFinite(verseNumber)) return;
+  activeVerse.value = verseNumber;
+}
+
 function onClearSelection() {
   activeVerse.value = null;
+}
+
+async function onVerseStep(payload) {
+  const direction =
+    typeof payload === "number"
+      ? payload
+      : Number(payload?.direction);
+  const fromVerse =
+    typeof payload === "object" && payload != null && Number.isFinite(Number(payload.fromVerse))
+      ? Number(payload.fromVerse)
+      : null;
+  if (!Number.isFinite(direction) || direction === 0) return;
+
+  if (readerLoading.value) return;
+  const verses = (chapterData.value?.verses || [])
+    .map((verse) => Number(verse?.verse))
+    .filter((verseNumber) => Number.isFinite(verseNumber));
+  if (!verses.length) return;
+
+  const firstVerse = verses[0];
+  const lastVerse = verses[verses.length - 1];
+  const currentVerse = Number.isFinite(activeVerse.value)
+    ? activeVerse.value
+    : Number.isFinite(fromVerse)
+      ? fromVerse
+      : firstVerse;
+  const currentIndex = Math.max(0, verses.indexOf(currentVerse));
+
+  if (direction < 0) {
+    if (currentVerse > firstVerse && currentIndex > 0) {
+      activeVerse.value = verses[currentIndex - 1];
+      return;
+    }
+    const prevNav = chapterData.value?.prev;
+    if (!prevNav) return;
+    const prevBook = books.value.find((book) => book.book_id === prevNav.book_id);
+    if (!prevBook) return;
+    const prevChapter = prevNav.chapter ?? prevBook.chapters;
+    await loadChapter(prevNav.book_id, prevChapter, { focusVerse: "last" });
+    return;
+  }
+
+  if (currentVerse < lastVerse && currentIndex < verses.length - 1) {
+    activeVerse.value = verses[currentIndex + 1];
+    return;
+  }
+  const nextNav = chapterData.value?.next;
+  if (!nextNav) return;
+  const nextBook = books.value.find((book) => book.book_id === nextNav.book_id);
+  if (!nextBook) return;
+  const nextChapter = nextNav.chapter ?? 1;
+  await loadChapter(nextNav.book_id, nextChapter, { focusVerse: 1 });
 }
 
 async function onNavigate(direction) {
@@ -442,25 +708,43 @@ function splitEntityMatches(entities) {
   return { people, places };
 }
 
-async function onExploreQuery() {
-  const query = quickQuery.value.trim();
-  if (!query) return;
-  const anchor = buildAnchor();
-
-  try {
-    const entityPayload = await searchEntities({ q: query, limit: 40 });
-    await runSearch(query, anchor, {
-      includeEntities: true,
-      prefetchedEntities: entityPayload,
-    });
-    quickQuery.value = "";
-    return;
-  } catch {
-    // Keep text explore functional if entity lookup fails.
+async function ensureInsightsVisibleAfterExplore() {
+  if (isMobile.value) {
+    insightsOpen.value = true;
+  } else if (isTablet.value && libraryPinned.value) {
+    insightsOpen.value = true;
+  } else {
+    insightsPinned.value = true;
+    insightsOpen.value = false;
   }
 
-  await runSearch(query, anchor, { includeEntities: true });
-  quickQuery.value = "";
+  await nextTick();
+  const drawerScroll = document.querySelector(".drawer-panel--right .view-scroll");
+  const columnScroll = document.querySelector(".context-column .view-scroll");
+  const target = insightsOpen.value ? drawerScroll : columnScroll;
+  if (target && typeof target.scrollTo === "function") {
+    target.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
+async function onExploreQuery() {
+  const query = quickQuery.value.trim();
+  if (!query || isExploring.value) return;
+  const anchor = buildAnchor();
+  isExploring.value = true;
+  exploreError.value = null;
+
+  try {
+    const exploreSucceeded = await runAsk(query, anchor);
+    if (exploreSucceeded) {
+      quickQuery.value = "";
+      await ensureInsightsVisibleAfterExplore();
+    } else {
+      exploreError.value = "Could not explore this passage right now. Try again.";
+    }
+  } finally {
+    isExploring.value = false;
+  }
 }
 
 async function onOpenEntity(payload) {
@@ -483,6 +767,17 @@ async function onOpenReference(payload) {
   await loadChapter(nextBook, nextChapter, {
     focusVerse: Number.isFinite(nextVerse) ? nextVerse : null,
   });
+}
+
+// ── Library navigation ─────────────────────────────────────────────────────
+async function onLibraryNavigate({ bookId: nextBookId, chapter: nextChapter }) {
+  const remembered = getRememberedBookPosition(nextBookId);
+  const targetVerse = nextChapter === (remembered?.chapter)
+    ? (remembered?.verse ?? 1)
+    : 1;
+  await loadChapter(nextBookId, nextChapter, { focusVerse: targetVerse });
+  // Auto-close drawer on mobile after navigation
+  if (isMobile.value) libraryOpen.value = false;
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
@@ -534,93 +829,21 @@ function getDisplayBookName(id, fallbackName) {
 
 <template>
   <div class="workspace-shell">
-    <header class="workspace-header">
-      <div>
-        <h1 class="workspace-title">Scriptorium</h1>
-        <p class="workspace-subtitle">Contextual Bible Reader</p>
-      </div>
+    <main class="workspace-grid" :class="gridClass">
 
-      <div class="control-row">
-        <label class="field">
-          <span>Translation</span>
-          <select v-model="translation" class="field-input">
-            <option v-for="t in AVAILABLE_TRANSLATIONS" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Book</span>
-          <select :value="bookId" class="field-input" @change="onBookChange">
-            <option v-for="book in books" :key="book.book_id" :value="book.book_id">
-              {{ getDisplayBookName(book.book_id, book.name) }}
-            </option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Chapter</span>
-          <select :value="chapter" class="field-input" @change="onChapterChange">
-            <option v-for="n in chapterOptions" :key="n" :value="n">{{ n }}</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Verse</span>
-          <select :value="activeVerse ?? ''" class="field-input" @change="onVerseChange">
-            <option value="">None</option>
-            <option v-for="n in verseOptions" :key="n" :value="n">{{ n }}</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="explore-row">
-        <input
-          v-model="quickQuery"
-          type="text"
-          class="field-input explore-input"
-          placeholder="Explore from current context"
-          @keyup.enter.prevent="onExploreQuery"
+      <!-- ── Library column (desktop/tablet pinned) ── -->
+      <section v-if="showLibraryColumn" class="surface-card library-column">
+        <LibrarySidebar
+          :books="displayBooks"
+          :current-book-id="bookId"
+          :current-chapter="chapter"
+          :translation="translation"
+          @navigate="onLibraryNavigate"
+          @close="libraryPinned = false"
         />
-        <button class="primary-btn" type="button" @click="onExploreQuery">Explore</button>
-        <button class="ghost-btn" type="button" @click="showAdvanced = !showAdvanced">
-          {{ showAdvanced ? "Hide Options" : "Search Options" }}
-        </button>
-      </div>
+      </section>
 
-      <div v-if="showAdvanced" class="advanced-row">
-        <label class="field compact">
-          <span>Mode</span>
-          <select v-model="mode" class="field-input">
-            <option value="explorer">explorer</option>
-            <option value="exact">exact</option>
-          </select>
-        </label>
-
-        <label class="field compact">
-          <span>TopK</span>
-          <input
-            v-model.number="topk"
-            class="field-input"
-            type="number"
-            min="1"
-            max="100"
-            step="1"
-          />
-        </label>
-
-        <label class="toggle">
-          <input v-model="includeDeutero" type="checkbox" />
-          <span>Include deuterocanonical books</span>
-        </label>
-
-        <label class="toggle">
-          <input v-model="highlightEntities" type="checkbox" />
-          <span>Highlight entity terms</span>
-        </label>
-      </div>
-    </header>
-
-    <main class="workspace-grid">
+      <!-- ── Reader ── -->
       <ReaderPane
         :book-id="bookId"
         :book-name="activeBookName"
@@ -635,14 +858,32 @@ function getDisplayBookName(id, fallbackName) {
         :has-next="Boolean(chapterData?.next)"
         :loading="readerLoading"
         :error="readerError"
+        :available-translations="AVAILABLE_TRANSLATIONS"
+        :chapter-options="chapterOptions"
+        :quick-query="quickQuery"
+        :is-exploring="isExploring"
+        :explore-error="exploreError"
+        :library-active="libraryActive"
+        :insights-active="insightsActive"
         @select-verse="onSelectVerse"
+        @activate-verse="onActivateVerse"
         @find-parallels="onFindParallels"
         @clear-selection="onClearSelection"
         @go-prev="onNavigate('prev')"
         @go-next="onNavigate('next')"
+        @chapter-step="onChapterStep"
+        @chapter-change="onChapterChange"
+        @verse-step="onVerseStep"
+        @translation-change="(t) => (translation = t)"
+        @explore-query="onExploreQuery"
+        @quick-query-change="onQuickQueryChange"
+        @settings-change="onSettingsChange"
+        @toggle-library="onToggleLibrary"
+        @toggle-insights="onToggleInsights"
       />
 
-      <section class="surface-card context-column">
+      <!-- ── Insights column (desktop/tablet pinned) ── -->
+      <section v-if="showInsightsColumn" class="surface-card context-column">
         <ContextPane
           :current-view="currentView"
           :can-go-back="canGoBack"
@@ -661,5 +902,47 @@ function getDisplayBookName(id, fallbackName) {
         />
       </section>
     </main>
+
+    <!-- ── Library drawer (mobile / tablet / unpinned desktop) ── -->
+    <DrawerShell
+      :is-open="libraryDrawerOpen"
+      side="left"
+      aria-label="Library"
+      @close="libraryOpen = false"
+    >
+      <LibrarySidebar
+        :books="displayBooks"
+        :current-book-id="bookId"
+        :current-chapter="chapter"
+        :translation="translation"
+        @navigate="onLibraryNavigate"
+        @close="libraryOpen = false"
+      />
+    </DrawerShell>
+
+    <!-- ── Insights drawer (mobile / unpinned) ── -->
+    <DrawerShell
+      :is-open="insightsDrawerOpen"
+      side="right"
+      aria-label="Insights"
+      @close="insightsOpen = false"
+    >
+      <ContextPane
+        :current-view="currentView"
+        :can-go-back="canGoBack"
+        :stack-depth="stackDepth"
+        :selected-entity-id="selectedEntityId"
+        :book-name="activeBookName"
+        :chapter="chapter"
+        :chapter-total="activeBook?.chapters || null"
+        :verse-count="chapterData?.verses?.length || 0"
+        :selected-entity-type="selectedEntitySource?.type || null"
+        @go-back="goBack"
+        @clear-context="onInsightsClearContext"
+        @select-entity="onSelectEntity"
+        @open-reference="onOpenReference"
+        @open-entity="onOpenEntity"
+      />
+    </DrawerShell>
   </div>
 </template>

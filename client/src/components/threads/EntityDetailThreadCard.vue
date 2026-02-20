@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { PT_BR_BOOK_NAMES } from "../../data/bookNamesPtBr.js";
+import MapCard from "../MapCard.vue";
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -44,6 +45,10 @@ const UNKNOWN_BOOK_INDEX = Number.MAX_SAFE_INTEGER;
 const verseLinks = computed(() => {
   const source = Array.isArray(entity.value?.verses) ? entity.value.verses : [];
   return [...source].sort(compareVerseRefs);
+});
+
+const mapLanguage = computed(() => {
+  return props.thread?.anchor?.translation === "PT1911" ? "pt" : "en";
 });
 
 function compareVerseRefs(a, b) {
@@ -130,10 +135,14 @@ function formatDate(iso) {
         </p>
       </section>
 
-      <section v-if="entity.lon != null" class="stack-block">
+      <section v-if="entity.lon != null && entity.lat != null" class="stack-block">
         <p class="section-label">Location</p>
-        <p class="geo-coords">{{ entity.lat?.toFixed(4) }}, {{ entity.lon?.toFixed(4) }}</p>
-        <p class="meta-note">Geo data available - map coming soon</p>
+        <MapCard
+          :lat="Number(entity.lat)"
+          :lon="Number(entity.lon)"
+          :title="entity.canonical_name"
+          :language="mapLanguage"
+        />
       </section>
 
       <section v-if="entity.aliases?.length" class="stack-block">
