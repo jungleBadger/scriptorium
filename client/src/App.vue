@@ -491,6 +491,34 @@ function getAskAnchorVerse() {
   return Number.isFinite(firstChapterVerse) ? firstChapterVerse : 1;
 }
 
+function formatAskIntegrationError(err) {
+  const code = String(err?.code || "").trim();
+
+  if (code === "NETWORK_ERROR") {
+    return "Could not reach the server. Verify the backend is running.";
+  }
+  if (code === "OLLAMA_UNREACHABLE") {
+    return "Local Ollama is unavailable. Start `ollama serve` and retry.";
+  }
+  if (code === "OLLAMA_MODEL_MISSING") {
+    return "Model qwen3:8b is missing. Run `ollama pull qwen3:8b`.";
+  }
+  if (code === "OLLAMA_TIMEOUT") {
+    return "Ollama timed out while generating the answer. Please retry.";
+  }
+
+  const status = Number(err?.status);
+  if (status === 400) {
+    return String(err?.message || "Invalid ask request.");
+  }
+  if (Number.isFinite(status) && status >= 500) {
+    return String(err?.message || "Ask service is temporarily unavailable.");
+  }
+
+  const fallback = String(err?.message || "").trim();
+  return fallback || "Could not explore this passage right now. Try again.";
+}
+
 async function runAsk(query, anchor) {
   const safePassages = Math.min(40, Math.max(1, Math.trunc(Number(topk.value) || 8)));
   topk.value = safePassages;
@@ -522,8 +550,10 @@ async function runAsk(query, anchor) {
     view.data = payload;
     return true;
   } catch (err) {
+    const message = formatAskIntegrationError(err);
     view.status = "error";
-    view.error = err.message;
+    view.error = message;
+    exploreError.value = message;
     return false;
   }
 }
@@ -739,7 +769,7 @@ async function onExploreQuery() {
     if (exploreSucceeded) {
       quickQuery.value = "";
       await ensureInsightsVisibleAfterExplore();
-    } else {
+    } else if (!exploreError.value) {
       exploreError.value = "Could not explore this passage right now. Try again.";
     }
   } finally {

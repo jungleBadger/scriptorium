@@ -1,13 +1,46 @@
-﻿async function request(url, options = {}) {
-  const res = await fetch(url, options);
+export class ApiError extends Error {
+  constructor(message, { status, code, retryable, body, url } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status ?? null;
+    this.code = code ?? null;
+    this.retryable = Boolean(retryable);
+    this.body = body ?? null;
+    this.url = url ?? null;
+  }
+}
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    const message = body.error || body.message || `Request failed (${res.status})`;
-    throw new Error(message);
+async function request(url, options = {}) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch {
+    throw new ApiError("Could not reach the server. Check your network or backend process.", {
+      code: "NETWORK_ERROR",
+      retryable: true,
+      url,
+    });
   }
 
-  return res.json();
+  const contentType = res.headers.get("content-type") || "";
+  const isJson = contentType.toLowerCase().includes("application/json");
+  const body = isJson
+    ? await res.json().catch(() => ({}))
+    : await res.text().catch(() => "");
+
+  if (!res.ok) {
+    const payload = typeof body === "string" ? { error: body } : body;
+    const message = payload?.error || payload?.message || `Request failed (${res.status})`;
+    throw new ApiError(message, {
+      status: res.status,
+      code: payload?.code || `HTTP_${res.status}`,
+      retryable: payload?.retryable ?? res.status >= 500,
+      body: payload,
+      url,
+    });
+  }
+
+  return isJson ? body : null;
 }
 
 export async function getBooks(translation = "WEBU") {
@@ -36,6 +69,34 @@ export async function search({
   };
 
   return request("/api/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function ask({
+  question,
+  translation = "WEBU",
+  book,
+  chapter,
+  verse,
+  active_entity_ids = [],
+  k_entities = 12,
+  k_passages = 10,
+}) {
+  const payload = {
+    question,
+    translation,
+    book,
+    chapter,
+    verse,
+    active_entity_ids,
+    k_entities,
+    k_passages,
+  };
+
+  return request("/api/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

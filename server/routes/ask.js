@@ -26,11 +26,66 @@ const askSchema = {
   },
 };
 
+function normalizeAskError(err) {
+  const statusCandidate = Number(err?.statusCode);
+  const statusCode =
+    Number.isInteger(statusCandidate) && statusCandidate >= 400 && statusCandidate < 600
+      ? statusCandidate
+      : 500;
+  const code =
+    typeof err?.code === "string" && err.code.trim()
+      ? err.code.trim()
+      : statusCode >= 500
+        ? "ASK_INTERNAL_ERROR"
+        : "ASK_BAD_REQUEST";
+  const retryable = statusCode >= 500;
+
+  if (code === "OLLAMA_UNREACHABLE") {
+    return {
+      statusCode: 503,
+      code,
+      retryable: true,
+      message: "Local Ollama is unavailable. Start `ollama serve` and try again.",
+    };
+  }
+  if (code === "OLLAMA_MODEL_MISSING") {
+    return {
+      statusCode: 503,
+      code,
+      retryable: false,
+      message: "Ollama model qwen3:8b is missing. Run `ollama pull qwen3:8b`.",
+    };
+  }
+  if (code === "OLLAMA_TIMEOUT") {
+    return {
+      statusCode: 504,
+      code,
+      retryable: true,
+      message: "Ollama timed out while generating an answer. Please retry.",
+    };
+  }
+
+  const fallbackMessage = statusCode >= 500
+    ? "Ask request failed due to a server error."
+    : "Ask request failed.";
+
+  return {
+    statusCode,
+    code,
+    retryable,
+    message: String(err?.message || "").trim() || fallbackMessage,
+  };
+}
+
 async function askHandler(req, reply) {
   const payload = req.body || {};
   const question = String(payload.question || "").trim();
   if (!question) {
-    reply.status(400).send({ error: "Question is required." });
+    reply.status(400).send({
+      error: "Question is required.",
+      code: "ASK_BAD_REQUEST",
+      retryable: false,
+    });
     return;
   }
 
@@ -47,12 +102,12 @@ async function askHandler(req, reply) {
     });
   } catch (err) {
     req.log.error(err);
-    const statusCode = Number(err?.statusCode);
-    if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600) {
-      reply.status(statusCode).send({ error: err.message || "Ask request failed." });
-      return;
-    }
-    reply.status(500).send({ error: "Ask request failed." });
+    const normalized = normalizeAskError(err);
+    reply.status(normalized.statusCode).send({
+      error: normalized.message,
+      code: normalized.code,
+      retryable: normalized.retryable,
+    });
   }
 }
 

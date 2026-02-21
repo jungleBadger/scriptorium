@@ -97,6 +97,7 @@ describe("POST /api/ask", () => {
   it("returns service status code when provided", async () => {
     const err = new Error("Could not reach local Ollama.");
     err.statusCode = 503;
+    err.code = "OLLAMA_UNREACHABLE";
     askQuestion.mockRejectedValueOnce(err);
 
     const res = await app.inject({
@@ -112,6 +113,8 @@ describe("POST /api/ask", () => {
     });
 
     expect(res.statusCode).toBe(503);
+    expect(res.json().code).toBe("OLLAMA_UNREACHABLE");
+    expect(res.json().retryable).toBe(true);
     expect(res.json().error).toContain("Ollama");
   });
 });
