@@ -1,9 +1,12 @@
-﻿<script setup>
+<script setup>
+import { ref } from "vue";
+
 const props = defineProps({
   thread: { type: Object, required: true },
 });
 
 const emit = defineEmits(["open-entity"]);
+const failedImageUrls = ref({});
 
 function openEntity(entity) {
   emit("open-entity", {
@@ -28,6 +31,29 @@ function getPlaceImageDescription(entity) {
   if (credit) return `Image source: OpenBible Images. Credit: ${credit}.`;
   return "Image source: OpenBible Images.";
 }
+
+function onImageError(url) {
+  const key = String(url || "").trim();
+  if (!key || failedImageUrls.value[key]) return;
+  failedImageUrls.value = {
+    ...failedImageUrls.value,
+    [key]: true,
+  };
+}
+
+function hasImageFailed(url) {
+  const key = String(url || "").trim();
+  return key ? Boolean(failedImageUrls.value[key]) : false;
+}
+
+function getEntityInitials(name) {
+  const clean = String(name || "").trim();
+  if (!clean) return "?";
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+}
 </script>
 
 <template>
@@ -44,13 +70,22 @@ function getPlaceImageDescription(entity) {
         @click="openEntity(entity)"
       >
         <img
-          v-if="entity.thumbnail?.url"
+          v-if="entity.thumbnail?.url && !hasImageFailed(entity.thumbnail.url)"
           :src="entity.thumbnail.url"
           :alt="entity.canonical_name"
           :title="isPlaceEntity(entity) ? getPlaceImageDescription(entity) : null"
           :aria-description="isPlaceEntity(entity) ? getPlaceImageDescription(entity) : null"
+          @error="onImageError(entity.thumbnail.url)"
           class="entity-thumb"
         />
+        <div
+          v-else-if="entity.thumbnail?.url"
+          class="entity-thumb entity-thumb-placeholder entity-thumb--fallback"
+          role="img"
+          :aria-label="`Image unavailable for ${entity.canonical_name}`"
+        >
+          {{ getEntityInitials(entity.canonical_name) }}
+        </div>
         <div class="entity-context-body">
           <p class="entity-name">{{ entity.canonical_name }}</p>
           <p class="entity-type">{{ entity.type || "unknown" }}</p>

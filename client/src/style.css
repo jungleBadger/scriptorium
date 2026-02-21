@@ -1098,6 +1098,18 @@ body {
   opacity: 0.4;
 }
 
+.entity-thumb--fallback {
+  opacity: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e4f3f;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .entity-thumb-expanded {
   width: 6.25rem;
   height: 6.25rem;
@@ -1129,6 +1141,17 @@ body {
   border: 1px solid var(--line);
   margin: 0 0 0.55rem;
   display: block;
+}
+
+.entity-hero-image--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #f6e8da, #f1dcc9);
+  color: #6e4f3f;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .geo-coords {

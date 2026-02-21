@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { PT_BR_BOOK_NAMES } from "../../data/bookNamesPtBr.js";
 import MapCard from "../MapCard.vue";
 
@@ -59,6 +59,36 @@ const placeImageSourceDescription = computed(() => {
   return "Image source: OpenBible Images.";
 });
 
+const failedImageUrls = ref({});
+
+const hasLocationImage = computed(() => {
+  const url = String(entity.value?.thumbnail?.url || "").trim();
+  return Boolean(isLocationEntity.value && url && !failedImageUrls.value[url]);
+});
+
+const hasEntityThumbImage = computed(() => {
+  const url = String(entity.value?.thumbnail?.url || "").trim();
+  return Boolean(!isLocationEntity.value && url && !failedImageUrls.value[url]);
+});
+
+function onImageError(url) {
+  const key = String(url || "").trim();
+  if (!key || failedImageUrls.value[key]) return;
+  failedImageUrls.value = {
+    ...failedImageUrls.value,
+    [key]: true,
+  };
+}
+
+function getEntityInitials(name) {
+  const clean = String(name || "").trim();
+  if (!clean) return "?";
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+}
+
 function compareVerseRefs(a, b) {
   const aBook = String(a?.book_id || "").trim();
   const bBook = String(b?.book_id || "").trim();
@@ -115,21 +145,39 @@ function formatDate(iso) {
     <div v-else class="stack-list">
       <section class="stack-block">
         <img
-          v-if="isLocationEntity && entity.thumbnail?.url"
+          v-if="hasLocationImage"
           :src="entity.thumbnail.url"
           :alt="entity.canonical_name"
           :title="placeImageSourceDescription"
           :aria-description="placeImageSourceDescription"
+          @error="onImageError(entity.thumbnail.url)"
           class="entity-hero-image"
         />
+        <div
+          v-else-if="isLocationEntity && entity.thumbnail?.url"
+          class="entity-hero-image entity-hero-image--fallback"
+          role="img"
+          :aria-label="`Image unavailable for ${entity.canonical_name}`"
+        >
+          Image unavailable
+        </div>
 
         <div :class="['entity-detail-header', { 'entity-detail-header--hero': isLocationEntity && entity.thumbnail?.url }]">
           <img
-            v-if="!isLocationEntity && entity.thumbnail?.url"
+            v-if="hasEntityThumbImage"
             :src="entity.thumbnail.url"
             :alt="entity.canonical_name"
+            @error="onImageError(entity.thumbnail.url)"
             class="entity-thumb entity-thumb-lg"
           />
+          <div
+            v-else-if="!isLocationEntity && entity.thumbnail?.url"
+            class="entity-thumb entity-thumb-lg entity-thumb-placeholder entity-thumb--fallback"
+            role="img"
+            :aria-label="`Image unavailable for ${entity.canonical_name}`"
+          >
+            {{ getEntityInitials(entity.canonical_name) }}
+          </div>
           <div>
             <p class="entity-name">{{ entity.canonical_name }}</p>
             <p class="entity-type">{{ entity.type || "unknown" }}</p>
