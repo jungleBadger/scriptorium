@@ -51,6 +51,14 @@ const mapLanguage = computed(() => {
   return props.thread?.anchor?.translation === "PT1911" ? "pt" : "en";
 });
 
+const placeImageCredit = computed(() => String(entity.value?.thumbnail?.credit || "").trim());
+const placeImageSourceDescription = computed(() => {
+  if (placeImageCredit.value) {
+    return `Image source: OpenBible Images. Credit: ${placeImageCredit.value}.`;
+  }
+  return "Image source: OpenBible Images.";
+});
+
 function compareVerseRefs(a, b) {
   const aBook = String(a?.book_id || "").trim();
   const bBook = String(b?.book_id || "").trim();
@@ -110,6 +118,8 @@ function formatDate(iso) {
           v-if="isLocationEntity && entity.thumbnail?.url"
           :src="entity.thumbnail.url"
           :alt="entity.canonical_name"
+          :title="placeImageSourceDescription"
+          :aria-description="placeImageSourceDescription"
           class="entity-hero-image"
         />
 
