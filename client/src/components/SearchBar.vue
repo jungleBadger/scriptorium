@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from "vue";
-import { search } from "../services/api.js";
+import { getApiErrorMessage, search } from "../services/api.js";
 
 const emit = defineEmits(["search"]);
 const query = ref("");
@@ -12,10 +12,14 @@ async function handleSubmit() {
   emit("search", { results: [], error: null, loading: true });
 
   try {
-    const results = await search(q);
+    const results = await search({ q });
     emit("search", { results, error: null, loading: false });
   } catch (err) {
-    emit("search", { results: [], error: err.message, loading: false });
+    emit("search", {
+      results: [],
+      error: getApiErrorMessage(err, { context: "search" }),
+      loading: false,
+    });
   }
 }
 </script>

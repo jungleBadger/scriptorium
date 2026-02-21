@@ -10,6 +10,51 @@ export class ApiError extends Error {
   }
 }
 
+const ERROR_MESSAGE_BY_CODE = {
+  NETWORK_ERROR: "Could not reach the server. Verify the backend is running and retry.",
+  OLLAMA_UNREACHABLE: "Local Ollama is unavailable. Start `ollama serve` and retry.",
+  OLLAMA_MODEL_MISSING: "Model qwen3:8b is missing. Run `ollama pull qwen3:8b`.",
+  OLLAMA_TIMEOUT: "Ollama timed out while generating the answer. Please retry.",
+  ASK_BAD_REQUEST: "Could not process this ask request. Please adjust it and try again.",
+  ASK_INTERNAL_ERROR: "Ask service is temporarily unavailable. Please try again.",
+};
+
+const CONTEXT_FALLBACKS = {
+  generic: "Something went wrong. Please try again.",
+  books: "Could not load the book list. Please try again.",
+  chapter: "Could not load this chapter. Please try again.",
+  chapterContext: "Could not load chapter insights right now. Please try again.",
+  entityDetail: "Could not load entity details right now. Please try again.",
+  search: "Could not run this search right now. Please try again.",
+  ask: "Could not explore this passage right now. Please try again.",
+};
+
+export function getApiErrorMessage(err, { context = "generic" } = {}) {
+  const code = String(err?.code || "").trim().toUpperCase();
+  if (code && ERROR_MESSAGE_BY_CODE[code]) {
+    return ERROR_MESSAGE_BY_CODE[code];
+  }
+
+  const status = Number(err?.status);
+  if (status === 400) {
+    return "Request is invalid. Please review your input and try again.";
+  }
+  if (status === 404) {
+    if (context === "chapter") {
+      return "This chapter is not available for the selected translation.";
+    }
+    return "Requested content was not found.";
+  }
+  if (status === 429) {
+    return "Too many requests in a short time. Please wait a moment and retry.";
+  }
+  if (Number.isFinite(status) && status >= 500) {
+    return "The server is temporarily unavailable. Please retry in a moment.";
+  }
+
+  return CONTEXT_FALLBACKS[context] || CONTEXT_FALLBACKS.generic;
+}
+
 async function request(url, options = {}) {
   let res;
   try {

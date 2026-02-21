@@ -12,6 +12,22 @@ function openEntity(entity) {
     anchor: props.thread.anchor,
   });
 }
+
+function isPlaceEntity(entity) {
+  const typeValue = String(entity?.type || "").trim().toLowerCase();
+  if (
+    /(place|location|geo|region|river|mountain|city|town|village|sea|lake|island|desert|valley|country)/.test(typeValue)
+  ) {
+    return true;
+  }
+  return entity?.lon != null || entity?.lat != null;
+}
+
+function getPlaceImageDescription(entity) {
+  const credit = String(entity?.thumbnail?.credit || "").trim();
+  if (credit) return `Image source: OpenBible Images. Credit: ${credit}.`;
+  return "Image source: OpenBible Images.";
+}
 </script>
 
 <template>
@@ -31,6 +47,8 @@ function openEntity(entity) {
           v-if="entity.thumbnail?.url"
           :src="entity.thumbnail.url"
           :alt="entity.canonical_name"
+          :title="isPlaceEntity(entity) ? getPlaceImageDescription(entity) : null"
+          :aria-description="isPlaceEntity(entity) ? getPlaceImageDescription(entity) : null"
           class="entity-thumb"
         />
         <div class="entity-context-body">

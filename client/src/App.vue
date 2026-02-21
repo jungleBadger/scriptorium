@@ -6,6 +6,7 @@ import {
   getChapter,
   getChapterContext,
   getEntityById,
+  getApiErrorMessage,
   search,
   searchEntities,
 } from "./services/api.js";
@@ -309,7 +310,7 @@ async function initializeReader() {
 
     await loadChapter(bookId.value, chapter.value);
   } catch (err) {
-    readerError.value = err.message;
+    readerError.value = getApiErrorMessage(err, { context: "books" });
     chapterData.value = null;
   } finally {
     readerLoading.value = false;
@@ -350,7 +351,7 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     void loadChapterContextView(nextBookId, nextChapter);
   } catch (err) {
     if (requestToken !== chapterRequestToken) return;
-    readerError.value = err.message;
+    readerError.value = getApiErrorMessage(err, { context: "chapter" });
     chapterData.value = null;
   } finally {
     if (requestToken === chapterRequestToken) readerLoading.value = false;
@@ -385,7 +386,7 @@ async function loadChapterContextView(nextBookId, nextChapter) {
   } catch (err) {
     if (token !== chapterContextToken) return;
     view.status = "error";
-    view.error = err.message;
+    view.error = getApiErrorMessage(err, { context: "chapterContext" });
   }
 }
 
@@ -407,7 +408,7 @@ async function openEntityDetail(entityId, name, anchor) {
     view.data = payload;
   } catch (err) {
     view.status = "error";
-    view.error = err.message;
+    view.error = getApiErrorMessage(err, { context: "entityDetail" });
   }
 }
 
@@ -464,8 +465,9 @@ async function runSearch(query, anchor, { includeEntities = true, prefetchedEnti
     view.includeDeutero = passagePayload.includeDeutero;
     return true;
   } catch (err) {
+    const message = getApiErrorMessage(err, { context: "search" });
     view.status = "error";
-    view.error = err.message;
+    view.error = message;
     return false;
   }
 }
@@ -489,34 +491,6 @@ function getAskAnchorVerse() {
   if (Number.isFinite(activeVerse.value)) return activeVerse.value;
   const firstChapterVerse = Number(chapterData.value?.verses?.[0]?.verse);
   return Number.isFinite(firstChapterVerse) ? firstChapterVerse : 1;
-}
-
-function formatAskIntegrationError(err) {
-  const code = String(err?.code || "").trim();
-
-  if (code === "NETWORK_ERROR") {
-    return "Could not reach the server. Verify the backend is running.";
-  }
-  if (code === "OLLAMA_UNREACHABLE") {
-    return "Local Ollama is unavailable. Start `ollama serve` and retry.";
-  }
-  if (code === "OLLAMA_MODEL_MISSING") {
-    return "Model qwen3:8b is missing. Run `ollama pull qwen3:8b`.";
-  }
-  if (code === "OLLAMA_TIMEOUT") {
-    return "Ollama timed out while generating the answer. Please retry.";
-  }
-
-  const status = Number(err?.status);
-  if (status === 400) {
-    return String(err?.message || "Invalid ask request.");
-  }
-  if (Number.isFinite(status) && status >= 500) {
-    return String(err?.message || "Ask service is temporarily unavailable.");
-  }
-
-  const fallback = String(err?.message || "").trim();
-  return fallback || "Could not explore this passage right now. Try again.";
 }
 
 async function runAsk(query, anchor) {
@@ -550,7 +524,7 @@ async function runAsk(query, anchor) {
     view.data = payload;
     return true;
   } catch (err) {
-    const message = formatAskIntegrationError(err);
+    const message = getApiErrorMessage(err, { context: "ask" });
     view.status = "error";
     view.error = message;
     exploreError.value = message;
