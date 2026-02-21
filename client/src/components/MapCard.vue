@@ -28,21 +28,29 @@ const osmHref = computed(() => {
   return `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=9/${lat}/${lon}`;
 });
 
-const tileLanguage = computed(() => (String(props.language || "").toLowerCase() === "pt" ? "pt" : "en"));
+const tileLanguage = computed(() => {
+  const value = String(props.language || "").trim().toLowerCase();
+  return value.startsWith("pt") ? "pt" : "en";
+});
 
-function getPrimaryTileConfig(language) {
-  return {
-    url: `https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png?lang=${encodeURIComponent(language)}`,
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &middot; Wikimedia maps',
-  };
-}
-
-function getFallbackTileConfig() {
-  return {
-    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  };
+function getTileConfigChain(language) {
+  const lang = encodeURIComponent(language);
+  return [
+    {
+      url: `https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png?lang=${lang}&language=${lang}`,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &middot; Wikimedia maps',
+    },
+    {
+      url: `https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png?lang=${lang}`,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &middot; Wikimedia maps',
+    },
+    {
+      url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    },
+  ];
 }
 
 async function loadLeaflet() {
@@ -86,27 +94,35 @@ function setTileLayer(language) {
   tileLayerInstance?.remove();
   tileLayerInstance = null;
 
-  const primary = getPrimaryTileConfig(language);
-  const fallback = getFallbackTileConfig();
-  const primaryLayer = L.tileLayer(primary.url, {
-    maxZoom: 19,
-    attribution: primary.attribution,
-  });
+  const chain = getTileConfigChain(language);
+  let configIndex = 0;
 
-  primaryLayer.addTo(mapInstance);
-  tileLayerInstance = primaryLayer;
+  function mountLayer() {
+    const current = chain[configIndex];
+    if (!current || !mapInstance) return;
 
-  let switchedToFallback = false;
-  primaryLayer.on("tileerror", () => {
-    if (switchedToFallback || !mapInstance) return;
-    switchedToFallback = true;
-    primaryLayer.remove();
-    tileLayerInstance = L.tileLayer(fallback.url, {
+    const layer = L.tileLayer(current.url, {
       maxZoom: 19,
-      attribution: fallback.attribution,
+      attribution: current.attribution,
     });
-    tileLayerInstance.addTo(mapInstance);
-  });
+    layer.addTo(mapInstance);
+    tileLayerInstance = layer;
+
+    let tileErrorCount = 0;
+    layer.on("tileerror", () => {
+      tileErrorCount += 1;
+      if (!mapInstance) return;
+      if (tileErrorCount < 3) return;
+      if (configIndex >= chain.length - 1) return;
+
+      layer.off();
+      layer.remove();
+      configIndex += 1;
+      mountLayer();
+    });
+  }
+
+  mountLayer();
 }
 
 async function initMap() {
@@ -189,5 +205,6 @@ onBeforeUnmount(() => {
         Open in OpenStreetMap
       </a>
     </div>
+    <p class="meta-note">Map labels prefer {{ tileLanguage === "pt" ? "Portuguese" : "English" }} when available.</p>
   </div>
 </template>
