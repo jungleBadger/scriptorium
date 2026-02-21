@@ -49,7 +49,7 @@ Writes `ingest/out/verses.ndjson` with one JSON record per verse containing `ref
 node ingest/scripts/003_load_verses_to_postgres.mjs ingest/out/verses.ndjson
 ```
 
-Inserts verse records into the `verses` table. Uses `ON CONFLICT (ref) DO NOTHING` so reruns are safe.
+Inserts verse records into the `verses` table. Uses `ON CONFLICT (ref) DO UPDATE` so reruns are safe and also refresh corrected parsing output (for example, cleaner `text_clean` updates).
 
 ### 3. Generate Chunks
 
