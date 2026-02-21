@@ -14,6 +14,77 @@ Personal Bible Explorer with semantic search. Ingest Bible translations (USFM/US
 - Node.js 22+
 - Docker and Docker Compose
 
+## First-Time Setup (Data + Ingest)
+
+1. Create the data directory:
+
+```bash
+mkdir -p ingest/data
+```
+
+2. Download and place required base translation files:
+- `ingest/data/engwebu_usfm.zip` (WEBU, required by `npm run ingest:rebuild`)
+- `ingest/data/por-almeida.usfx.xml` (PT1911, optional unless you ingest PT1911)
+
+3. Optional entity datasets (for entity/maps/enrichment flows):
+- `ingest/data/ancient.jsonl`
+- `ingest/data/modern.jsonl`
+- `ingest/data/geometry.jsonl`
+- `ingest/data/source.jsonl`
+- `ingest/data/image.jsonl`
+- `ingest/data/HitchcocksBibleNamesDictionary.csv`
+
+4. Start Postgres + pgvector:
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+5. Install Node dependencies:
+
+```bash
+npm install
+```
+
+6. Run base ingest (WEBU parse -> load -> chunks -> embeddings):
+
+```bash
+npm run ingest:rebuild
+```
+
+7. Optional: ingest PT1911 and regenerate chunks/embeddings:
+
+```bash
+node ingest/scripts/002_usfx_to_verses.mjs ingest/data/por-almeida.usfx.xml ingest/out PT1911
+node ingest/scripts/003_load_verses_to_postgres.mjs ingest/out/verses.ndjson
+node ingest/scripts/004_generate_chunks.mjs 3 1
+node ingest/scripts/005_embed_chunks.mjs
+```
+
+8. Optional: load/enrich entities:
+
+```bash
+npm run ingest:entities:openbible
+npm run ingest:entities:openbible:full
+npm run ingest:entities:hitchcock
+npm run ingest:entities:person-refs
+```
+
+9. Optional: build client bundle and start app:
+
+```bash
+npm run build:client
+npm start
+```
+
+10. Optional: enable local Ollama chat (`/api/ask`):
+
+```bash
+# Install Ollama (https://ollama.com/download), then:
+ollama serve
+ollama pull qwen3:8b
+```
+
 ## Quick Start
 
 ```bash
@@ -32,6 +103,65 @@ npm run build:client
 # 5. Start the server
 npm start
 ```
+
+Use this section when you already have the required files in `ingest/data`.
+
+## Ollama Chat Experience
+
+Scriptorium includes a local Ask flow powered by Ollama (`qwen3:8b`) via `POST /api/ask`.
+
+### 1. Start Ollama and pull model
+
+```bash
+ollama serve
+ollama pull qwen3:8b
+```
+
+### 2. Start Scriptorium backend
+
+```bash
+npm start
+```
+
+### 3. Verify health (Postgres + Ollama)
+
+```bash
+curl localhost:3000/api/health
+```
+
+Expected status is `ok` only when Postgres is up and Ollama is reachable with the configured model.
+
+### 4. Ask from UI or API
+
+- UI: use the `Ask about this passage...` input and click `Explore`.
+- API example:
+
+```bash
+curl -X POST http://localhost:3000/api/ask \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "question": "Who killed Abel?",
+    "translation": "WEBU",
+    "book": "GEN",
+    "chapter": 4,
+    "verse": 8
+  }'
+```
+
+Response shape:
+
+```json
+{
+  "raw_response_text": "plain text answer from Ollama",
+  "found_entities": [],
+  "relevant_passages": []
+}
+```
+
+Notes:
+- `raw_response_text` is plain text (no JSON/Markdown required from model output).
+- `relevant_passages` is capped server-side to a maximum of 3.
+- Common errors include `OLLAMA_UNREACHABLE`, `OLLAMA_MODEL_MISSING`, and `OLLAMA_TIMEOUT`.
 
 ## npm Scripts
 
