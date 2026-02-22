@@ -214,8 +214,11 @@ export async function retrieveFoundEntities({
 
   const ranked = new Map();
 
-  for (const [termIndex, term] of terms.entries()) {
-    const result = await searchEntities(term, { limit: ENTITY_SEARCH_LIMIT, offset: 0 });
+  const allResults = await Promise.all(
+    terms.map((term) => searchEntities(term, { limit: ENTITY_SEARCH_LIMIT, offset: 0 }))
+  );
+  for (const [termIndex, result] of allResults.entries()) {
+    const term = terms[termIndex];
     const rows = Array.isArray(result?.results) ? result.results : [];
     for (const [rowIndex, row] of rows.entries()) {
       const current = ranked.get(row.id);
