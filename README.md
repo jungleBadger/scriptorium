@@ -13,6 +13,8 @@ Personal Bible Explorer with semantic search. Ingest Bible translations (USFM/US
 
 - Node.js 22+
 - Docker and Docker Compose
+- [voice.ai](https://voice.ai) account and API key (for text-to-speech)
+- [Cloudflare R2](https://developers.cloudflare.com/r2/) bucket (for TTS audio cache)
 
 ## First-Time Setup (Data + Ingest)
 
@@ -77,7 +79,21 @@ npm run build:client
 npm start
 ```
 
-10. Optional: enable local Ollama chat (`/api/ask`):
+10. Optional: configure text-to-speech (voice.ai + Cloudflare R2):
+
+Set the following environment variables (e.g. in a `.env` file):
+
+```
+VOICE_AI_API_KEY=your-voice-ai-api-key
+R2_URL=https://<account_id>.r2.cloudflarestorage.com
+R2_BUCKET_NAME=scriptorium-tts-cache
+R2_ACCESS_KEY=your-r2-access-key
+R2_SECRET_ACCESS_KEY=your-r2-secret-key
+```
+
+Add your voice IDs from the voice.ai dashboard to `server/data/voices.js`.
+
+11. Optional: enable local Ollama chat (`/api/ask`):
 
 ```bash
 # Install Ollama (https://ollama.com/download), then:
@@ -200,12 +216,13 @@ scriptorium/
     README.md             # Pipeline details and env vars
   server/
     index.js              # Fastify entry point
-    data/                 # Static data (book names, canonical order)
+    data/                 # Static data (book names, canonical order, voices config)
     routes/               # API route handlers
-    services/             # Repos, embedder, vector search, reranker
+    services/             # Repos, embedder, vector search, reranker, TTS, R2
   scripts/
     search_cli.mjs        # CLI semantic search tool
   tests/
+    composables/          # Client composable pure function tests
     routes/               # Route integration tests (Fastify inject)
     services/             # Service unit tests (mocked DB)
   package.json
@@ -279,5 +296,49 @@ curl "localhost:3000/api/entities/geo?minLon=35&maxLon=36&minLat=31&maxLat=32"
 ```
 
 `/api/entities` and `/api/entities/geo` return pagination metadata: `total`, `limit`, `offset`, `has_more`, and `results`.
+
+### Text-to-Speech
+
+Read Bible verses aloud with synchronized word highlighting.
+
+```bash
+# List available voices
+curl localhost:3000/api/tts/voices
+```
+
+```bash
+# Generate (or serve cached) audio for a verse
+curl -X POST http://localhost:3000/api/tts \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "translation": "WEBU",
+    "bookId": "GEN",
+    "chapter": 1,
+    "verse": 1,
+    "voiceId": ""
+  }'
+```
+
+Response shape:
+
+```json
+{
+  "audioUrl": "https://<r2-bucket>/<key>?X-Amz-Signature=...",
+  "words": [
+    { "word": "In",        "startMs": 0,   "endMs": 150 },
+    { "word": "the",       "startMs": 150, "endMs": 280 },
+    { "word": "beginning", "startMs": 280, "endMs": 600 }
+  ],
+  "cached": false
+}
+```
+
+Notes:
+- `audioUrl` is a pre-signed Cloudflare R2 URL (24h expiry) served directly to the browser — supports Range requests for seeking.
+- `words` timings are estimated from character distribution at ~130 WPM. Accuracy is sufficient for verse-length text.
+- `cached: true` means audio was served from R2 without calling voice.ai.
+- Audio is cached permanently in R2 (Bible text never changes). Cache key: `{bookId}/{chapter}/{verse}/{translation}/{voiceId}.mp3`.
+- Voice selection in the UI auto-switches language when the translation changes (e.g. PT1911 → Portuguese voice), but respects manual overrides.
+- Configure available voices in `server/data/voices.js`.
 
 See `ingest/README.md` for detailed pipeline docs and environment variables.
