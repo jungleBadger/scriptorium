@@ -23,6 +23,7 @@ const props = defineProps({
   availableTranslations:  { type: Array,   default: () => ['WEBU'] },
   chapterOptions:         { type: Array,   default: () => [] },
   quickQuery:             { type: String,  default: '' },
+  voiceId:                { type: String,  default: '' },
   isExploring:            { type: Boolean, default: false },
   exploreError:           { type: String,  default: null },
   libraryActive:          { type: Boolean, default: false },
@@ -335,6 +336,7 @@ function onVerseButtonClick(event, verseNumber) {
               active: activeVerse === verse.verse,
               'verse-row--selected-entity': isSelectedEntityVerse(verse.verse),
               'verse-row--bookmarked': isBookmarked(verse.verse),
+              'verse-row--reading': isVerseInPlayRange(verse.verse) && !isActiveReadingVerse(verse.verse),
             },
           ]"
         >
@@ -373,8 +375,11 @@ function onVerseButtonClick(event, verseNumber) {
             :chapter="chapter"
             :translation="translation"
             :is-bookmarked="isBookmarked(verse.verse)"
+            :is-speaking="tts.state.playing && tts.state.activeVerseNumber === verse.verse"
+            :is-speak-loading="tts.state.loading && tts.state.activeVerseNumber === verse.verse"
             @find-parallels="$emit('find-parallels', verse.verse)"
             @toggle-bookmark="toggleBookmark(verse.verse)"
+            @speak="handleSpeak(verse.verse)"
           />
         </li>
       </ol>

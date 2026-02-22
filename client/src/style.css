@@ -295,9 +295,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.1rem;
+  gap: 0.08rem;
   min-width: 0;
   padding: 0.3rem 0;
+  overflow: hidden;
 }
 
 .chapterbar-title {
@@ -361,6 +362,8 @@ body {
   align-items: center;
   gap: 0.3rem;
   line-height: 1;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .chapterbar-verse-hotkey {
@@ -381,6 +384,50 @@ body {
 
 .chapterbar-verse-sep {
   opacity: 0.5;
+}
+
+.chapterbar-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  line-height: 1;
+}
+
+.chapterbar-play {
+  border: 1px solid rgba(120, 95, 76, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #6f5a4c;
+  font-family: var(--ui);
+  font-size: 0.71rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.28rem 0.55rem;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.chapterbar-play:hover {
+  background: rgba(255, 255, 255, 0.68);
+  border-color: rgba(120, 95, 76, 0.36);
+  color: #554339;
+}
+
+.chapterbar-play:focus-visible {
+  outline: 2px solid #d68f72;
+  outline-offset: 2px;
+}
+
+.chapterbar-play--active {
+  color: #7e2718;
+  border-color: rgba(170, 76, 53, 0.34);
+  background: rgba(255, 233, 224, 0.85);
 }
 
 /* Transition for the verse indicator */
