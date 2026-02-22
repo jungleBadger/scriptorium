@@ -1,6 +1,8 @@
 <script setup>
 import { onMounted, onUnmounted, reactive, ref } from 'vue';
 
+import { fetchVoices } from '../composables/useVoices.js';
+
 defineProps({
   translation: { type: String, required: true },
   availableTranslations: { type: Array, default: () => ['WEBU'] },
@@ -13,15 +15,19 @@ const localSettings = reactive({
   lineSpacing: 'normal',
   font: 'serif',
   theme: 'light',
+  voiceId: '',
 });
+
+const voices = ref([{ id: '', label: 'Default' }]);
 
 const panelRef = ref(null);
 
-onMounted(() => {
+onMounted(async () => {
   const saved = localStorage.getItem('scriptorium-reader-settings');
   if (saved) {
     try { Object.assign(localSettings, JSON.parse(saved)); } catch {}
   }
+  voices.value = await fetchVoices();
   setTimeout(() => document.addEventListener('click', onDocClick), 0);
 });
 
@@ -53,6 +59,18 @@ function update(key, value) {
         @change="emit('translation-change', $event.target.value)"
       >
         <option v-for="t in availableTranslations" :key="t" :value="t">{{ t }}</option>
+      </select>
+    </div>
+
+    <!-- Voice -->
+    <div class="settings-group">
+      <p class="settings-label">Read aloud voice</p>
+      <select
+        :value="localSettings.voiceId"
+        class="field-input settings-select"
+        @change="update('voiceId', $event.target.value)"
+      >
+        <option v-for="v in voices" :key="v.id" :value="v.id">{{ v.label }}</option>
       </select>
     </div>
 

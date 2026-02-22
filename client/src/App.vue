@@ -15,6 +15,7 @@ import ContextPane from "./components/ContextPane.vue";
 import LibrarySidebar from "./components/LibrarySidebar.vue";
 import DrawerShell from "./components/DrawerShell.vue";
 import { useBreakpoint } from "./composables/useBreakpoint.js";
+import { fetchVoices, translationLanguage, pickVoiceForLanguage } from "./composables/useVoices.js";
 import { PT_BR_BOOK_NAMES } from "./data/bookNamesPtBr.js";
 
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
@@ -120,7 +121,7 @@ const activeVerse = ref(null);
 const selectedEntityId = ref(null);
 
 // ── Reader settings ────────────────────────────────────────────────────────
-const readerSettings = reactive({ fontSize: 'md', lineSpacing: 'normal', font: 'serif', theme: 'light' });
+const readerSettings = reactive({ fontSize: 'md', lineSpacing: 'normal', font: 'serif', theme: 'light', voiceId: '' });
 
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
@@ -262,6 +263,11 @@ onMounted(async () => {
   const saved = localStorage.getItem('scriptorium-reader-settings');
   if (saved) try { Object.assign(readerSettings, JSON.parse(saved)); } catch {}
   applySettingsCSSVars();
+  // If no voice saved yet, auto-pick based on current translation.
+  if (!readerSettings.voiceId) {
+    const voices = await fetchVoices();
+    readerSettings.voiceId = pickVoiceForLanguage(voices, translationLanguage(translation.value), "");
+  }
   await initializeReader();
 });
 
@@ -271,7 +277,12 @@ watch(readerSettings, () => {
 }, { deep: true });
 
 watch(translation, async (next, prev) => {
-  if (next !== prev) await initializeReader();
+  if (next === prev) return;
+  // Auto-select voice matching new language, unless current voice already matches.
+  const voices = await fetchVoices();
+  const lang = translationLanguage(next);
+  readerSettings.voiceId = pickVoiceForLanguage(voices, lang, readerSettings.voiceId);
+  await initializeReader();
 });
 
 watch(activeVerseAnchorKey, (nextAnchorKey) => {
@@ -865,6 +876,7 @@ function getDisplayBookName(id, fallbackName) {
         :available-translations="AVAILABLE_TRANSLATIONS"
         :chapter-options="chapterOptions"
         :quick-query="quickQuery"
+        :voice-id="readerSettings.voiceId"
         :is-exploring="isExploring"
         :explore-error="exploreError"
         :library-active="libraryActive"
