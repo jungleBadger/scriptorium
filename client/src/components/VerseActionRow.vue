@@ -2,15 +2,17 @@
 import { ref } from 'vue';
 
 const props = defineProps({
-  verseNumber: { type: Number, required: true },
-  verseText: { type: String, required: true },
-  bookId: { type: String, required: true },
-  chapter: { type: Number, required: true },
-  translation: { type: String, required: true },
-  isBookmarked: { type: Boolean, default: false },
+  verseNumber:    { type: Number,  required: true },
+  verseText:      { type: String,  required: true },
+  bookId:         { type: String,  required: true },
+  chapter:        { type: Number,  required: true },
+  translation:    { type: String,  required: true },
+  isBookmarked:   { type: Boolean, default: false },
+  isSpeaking:     { type: Boolean, default: false },
+  isSpeakLoading: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['find-parallels', 'toggle-bookmark']);
+const emit = defineEmits(['find-parallels', 'toggle-bookmark', 'speak']);
 
 const copyStatus = ref('idle');
 
@@ -29,6 +31,14 @@ async function copyVerse() {
 
 <template>
   <div class="verse-action-row">
+    <button
+      class="verse-action-btn"
+      :class="{ 'verse-action-btn--active': isSpeaking }"
+      type="button"
+      :title="isSpeaking ? 'Stop reading' : 'Read aloud'"
+      :disabled="isSpeakLoading"
+      @click.stop="emit('speak')"
+    >{{ isSpeakLoading ? '…' : isSpeaking ? '⏹' : '▶' }}</button>
     <button
       class="verse-action-btn"
       type="button"

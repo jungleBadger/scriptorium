@@ -2,7 +2,9 @@
 import { computed, nextTick, ref, watch } from "vue";
 import GlobalTopBar from './GlobalTopBar.vue';
 import ReaderHeader from './ReaderHeader.vue';
+import ReaderMiniPlayer from './ReaderMiniPlayer.vue';
 import VerseActionRow from './VerseActionRow.vue';
+import { useTts } from '../composables/useTts.js';
 
 const props = defineProps({
   bookId:                 { type: String,  required: true },
@@ -145,6 +147,87 @@ async function scrollToActiveVerse(behavior = "smooth") {
 watch(() => props.activeVerse, (v) => { if (v != null) scrollToActiveVerse("smooth"); });
 watch(() => props.verses,       () => { if (props.activeVerse != null) scrollToActiveVerse("auto"); });
 
+// ── TTS ───────────────────────────────────────────────────────────────────
+const tts = useTts();
+
+function ttsBase() {
+  return { bookId: props.bookId, chapter: props.chapter, translation: props.translation, voiceId: props.voiceId };
+}
+
+function handleSpeak(verseNumber) {
+  if (tts.state.verseStart === verseNumber && tts.state.verseEnd === verseNumber
+      && (tts.state.playing || tts.state.loading)) {
+    tts.stop();
+    return;
+  }
+  tts.play({ ...ttsBase(), verseNumbers: [verseNumber] });
+}
+
+function handlePlayChapter() {
+  if (tts.state.playing || tts.state.loading) { tts.stop(); return; }
+  const verses = props.verses;
+  if (!verses.length) return;
+
+  const selectedVerse = Number(props.activeVerse);
+  const startIdx = Number.isFinite(selectedVerse)
+    ? verses.findIndex((v) => v.verse === selectedVerse)
+    : -1;
+  const slice = startIdx >= 0 ? verses.slice(startIdx) : verses;
+  tts.play({ ...ttsBase(), verseNumbers: slice.map(v => v.verse) });
+}
+
+const isReadingChapter = computed(() =>
+  (tts.state.playing || tts.state.loading)
+  && tts.state.verseEnd !== tts.state.verseStart
+  && tts.state.bookId === props.bookId
+  && tts.state.chapter === props.chapter
+);
+
+const selectedVerseForRead = computed(() => {
+  const selectedVerse = Number(props.activeVerse);
+  if (!Number.isFinite(selectedVerse)) return null;
+  return props.verses.some((v) => v.verse === selectedVerse) ? selectedVerse : null;
+});
+
+const chapterReadButtonLabel = computed(() => {
+  if (isReadingChapter.value) return "Stop";
+  if (selectedVerseForRead.value != null) return `From verse ${selectedVerseForRead.value}`;
+  return "From beginning";
+});
+
+const chapterReadButtonTitle = computed(() => {
+  if (isReadingChapter.value) return "Stop reading";
+  if (selectedVerseForRead.value != null) {
+    return `Read aloud from verse ${selectedVerseForRead.value} to the end of the chapter`;
+  }
+  return "Read the chapter aloud from the beginning";
+});
+
+// True when a verse is the one currently being spoken.
+function isActiveReadingVerse(v) {
+  return tts.state.activeVerseNumber === v
+    && (tts.state.playing || tts.state.loading)
+    && tts.state.bookId === props.bookId
+    && tts.state.chapter === props.chapter;
+}
+
+// True when a verse is within the playing range but not the active spoken verse.
+function isVerseInPlayRange(v) {
+  if (!tts.state.verseStart || tts.state.bookId !== props.bookId || tts.state.chapter !== props.chapter) return false;
+  return v >= tts.state.verseStart && v <= (tts.state.verseEnd ?? tts.state.verseStart);
+}
+
+// Split text into word + trailing-whitespace pairs for TTS word highlighting.
+function getWordParts(text) {
+  const parts = [];
+  const wordRegex = /(\S+)(\s*)/g;
+  let match;
+  while ((match = wordRegex.exec(text)) !== null) {
+    parts.push({ word: match[1], trailing: match[2] });
+  }
+  return parts;
+}
+
 let suppressKeyboardClickUntil = 0;
 
 function getActivationTargetVerse(fallbackVerse) {
@@ -217,12 +300,16 @@ function onVerseButtonClick(event, verseNumber) {
         :has-next="hasNext"
         :active-verse="activeVerse"
         :chapter-options="chapterOptions"
+        :is-reading-chapter="isReadingChapter"
+        :chapter-read-label="chapterReadButtonLabel"
+        :chapter-read-title="chapterReadButtonTitle"
         @go-prev="$emit('go-prev')"
         @go-next="$emit('go-next')"
         @chapter-step="$emit('chapter-step', $event)"
         @chapter-change="$emit('chapter-change', $event)"
         @verse-step="$emit('verse-step', $event)"
         @clear-selection="$emit('clear-selection')"
+        @play-chapter="handlePlayChapter"
       />
 
       <!-- Loading / error / empty states -->
@@ -259,12 +346,23 @@ function onVerseButtonClick(event, verseNumber) {
           >
             <span class="verse-number">{{ verse.verse }}</span>
             <span>
-              <template v-for="(part, i) in getHighlightedParts(verse.text)" :key="i">
-                <mark
-                  v-if="part.isMatch"
-                  :class="['entity-highlight', { 'entity-highlight-selected': part.isSelectedMatch }]"
-                >{{ part.text }}</mark>
-                <span v-else>{{ part.text }}</span>
+              <!-- TTS active: render word-by-word spans for highlight sync -->
+              <template v-if="tts.state.activeVerseNumber === verse.verse && (tts.state.playing || tts.state.loading)">
+                <span
+                  v-for="(part, wi) in getWordParts(verse.text)"
+                  :key="wi"
+                  :class="{ 'tts-word-active': tts.state.playing && wi === tts.state.activeWordIdx }"
+                >{{ part.word }}{{ part.trailing }}</span>
+              </template>
+              <!-- Normal: search/entity highlight rendering -->
+              <template v-else>
+                <template v-for="(part, i) in getHighlightedParts(verse.text)" :key="i">
+                  <mark
+                    v-if="part.isMatch"
+                    :class="['entity-highlight', { 'entity-highlight-selected': part.isSelectedMatch }]"
+                  >{{ part.text }}</mark>
+                  <span v-else>{{ part.text }}</span>
+                </template>
               </template>
             </span>
           </button>
@@ -302,6 +400,12 @@ function onVerseButtonClick(event, verseNumber) {
           Next chapter
         </button>
       </div>
+
+      <div v-if="tts.state.error" class="state-error" role="status" aria-live="polite">
+        {{ tts.state.error }}
+      </div>
+
+      <ReaderMiniPlayer />
     </div>
   </section>
 </template>

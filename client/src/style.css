@@ -539,6 +539,14 @@ body {
   box-shadow: inset 0 0 0 1px #d3844e;
 }
 
+.tts-word-active {
+  background: var(--accent-soft);
+  color: var(--ink);
+  border-radius: 0.2rem;
+  padding: 0 0.1rem;
+  transition: background 0.08s;
+}
+
 .verse-actions {
   display: flex;
   flex-wrap: wrap;
