@@ -154,6 +154,10 @@ export async function getChapterContext(bookId, chapter, translation = "WEBU") {
   );
 }
 
+export async function getHealth() {
+  return request("/api/health");
+}
+
 export async function getEntitiesByVerse(bookId, chapter, verse) {
   return request(
     `/api/entities/by-verse/${encodeURIComponent(bookId)}/${chapter}/${verse}`

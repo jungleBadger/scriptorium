@@ -3,9 +3,11 @@ import { onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import { fetchVoices } from '../composables/useVoices.js';
 
-defineProps({
+const props = defineProps({
   translation: { type: String, required: true },
   availableTranslations: { type: Array, default: () => ['WEBU'] },
+  ttsEnabled: { type: Boolean, default: true },
+  ttsDisabledReason: { type: String, default: null },
 });
 
 const emit = defineEmits(['close', 'settings-change', 'translation-change']);
@@ -27,7 +29,9 @@ onMounted(async () => {
   if (saved) {
     try { Object.assign(localSettings, JSON.parse(saved)); } catch {}
   }
-  voices.value = await fetchVoices();
+  if (props.ttsEnabled) {
+    voices.value = await fetchVoices();
+  }
   setTimeout(() => document.addEventListener('click', onDocClick), 0);
 });
 
@@ -68,10 +72,15 @@ function update(key, value) {
       <select
         :value="localSettings.voiceId"
         class="field-input settings-select"
+        :disabled="!ttsEnabled"
+        :title="!ttsEnabled ? (ttsDisabledReason || 'Read aloud is unavailable') : 'Select read aloud voice'"
         @change="update('voiceId', $event.target.value)"
       >
         <option v-for="v in voices" :key="v.id" :value="v.id">{{ v.label }}</option>
       </select>
+      <p v-if="!ttsEnabled && ttsDisabledReason" class="settings-help-text" role="status">
+        {{ ttsDisabledReason }}
+      </p>
     </div>
 
     <!-- Text size -->

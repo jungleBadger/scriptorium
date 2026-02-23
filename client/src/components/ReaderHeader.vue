@@ -1,5 +1,4 @@
 <script setup>
-import { computed } from "vue";
 import { useKeyboardNav } from "../composables/useKeyboardNav.js";
 
 const props = defineProps({
@@ -7,31 +6,18 @@ const props = defineProps({
   chapter: { type: Number, default: 1 },
   hasPrev: { type: Boolean, default: false },
   hasNext: { type: Boolean, default: false },
-  activeVerse: { type: Number, default: null },
   chapterOptions: { type: Array, default: () => [] },
-  isReadingChapter: { type: Boolean, default: false },
-  chapterReadLabel: { type: String, default: "" },
-  chapterReadTitle: { type: String, default: "" },
 });
 
 const emit = defineEmits([
   "go-prev",
   "go-next",
   "chapter-change",
-  "clear-selection",
   "chapter-step",
-  "verse-step",
-  "play-chapter",
 ]);
 
-const verseAriaLabel = computed(() => {
-  if (!props.activeVerse) return "Verse navigation";
-  return `Verse ${props.activeVerse}. Use left and right arrows to navigate verses.`;
-});
-
-const { chapterControlRef, verseControlRef, onControlKeydown } = useKeyboardNav({
+const { chapterControlRef, onControlKeydown } = useKeyboardNav({
   onChapterStep: (direction) => emit("chapter-step", direction),
-  onVerseStep: (direction) => emit("verse-step", direction),
 });
 </script>
 
@@ -62,38 +48,6 @@ const { chapterControlRef, verseControlRef, onControlKeydown } = useKeyboardNav(
           <option v-for="n in chapterOptions" :key="n" :value="n">{{ n }}</option>
         </select>
       </h2>
-
-      <div class="chapterbar-sub-row">
-        <button
-          class="chapterbar-play"
-          :class="{ 'chapterbar-play--active': isReadingChapter }"
-          type="button"
-          :title="chapterReadTitle || (isReadingChapter ? 'Stop reading' : 'Read chapter aloud')"
-          @click="$emit('play-chapter')"
-        >{{ chapterReadLabel || (isReadingChapter ? 'Stop' : 'Read') }}</button>
-
-        <Transition name="verse-indicator">
-          <p v-if="activeVerse != null" class="chapterbar-verse-indicator">
-            <button
-              ref="verseControlRef"
-              class="chapterbar-verse-hotkey"
-              type="button"
-              :aria-label="verseAriaLabel"
-              @keydown="onControlKeydown"
-            >
-              Verse {{ activeVerse }}
-            </button>
-            <span class="chapterbar-verse-sep" aria-hidden="true">&middot;</span>
-            <button
-              class="inline-link-btn"
-              type="button"
-              @click="$emit('clear-selection')"
-            >
-              Clear
-            </button>
-          </p>
-        </Transition>
-      </div>
     </div>
 
     <button

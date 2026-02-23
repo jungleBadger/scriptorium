@@ -7,6 +7,7 @@ import {
   getChapterContext,
   getEntityById,
   getApiErrorMessage,
+  getHealth,
   search,
   searchEntities,
 } from "./services/api.js";
@@ -14,8 +15,11 @@ import ReaderPane from "./components/ReaderPane.vue";
 import ContextPane from "./components/ContextPane.vue";
 import LibrarySidebar from "./components/LibrarySidebar.vue";
 import DrawerShell from "./components/DrawerShell.vue";
+import InsightsSheet from "./components/InsightsSheet.vue";
 import { useBreakpoint } from "./composables/useBreakpoint.js";
 import { fetchVoices, translationLanguage, pickVoiceForLanguage } from "./composables/useVoices.js";
+import { useTts } from "./composables/useTts.js";
+import { useReaderState } from "./composables/useReaderState.js";
 import { PT_BR_BOOK_NAMES } from "./data/bookNamesPtBr.js";
 
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
@@ -109,6 +113,12 @@ function onInsightsClearContext() {
   if (isMobile.value) insightsOpen.value = false;
 }
 
+function applyInsightsOpenPlan(plan) {
+  if (!plan || typeof plan !== "object") return;
+  if (typeof plan.insightsPinned === "boolean") insightsPinned.value = plan.insightsPinned;
+  if (typeof plan.insightsOpen === "boolean") insightsOpen.value = plan.insightsOpen;
+}
+
 // ── Reader state ──────────────────────────────────────────────────────────
 const translation = ref("WEBU");
 const books = ref([]);
@@ -119,6 +129,56 @@ const readerLoading = ref(false);
 const readerError = ref(null);
 const activeVerse = ref(null);
 const selectedEntityId = ref(null);
+const readerUx = useReaderState();
+const tts = useTts();
+
+const serviceCapabilities = reactive({
+  loaded: false,
+  loading: false,
+  features: {
+    explore: true,
+    readAloud: true,
+  },
+  statuses: {
+    ollama: null,
+    voiceAi: null,
+  },
+});
+
+const exploreEnabled = computed(() => serviceCapabilities.features.explore !== false);
+const ttsEnabled = computed(() => serviceCapabilities.features.readAloud !== false);
+
+const exploreUnavailableReason = computed(() => {
+  if (exploreEnabled.value) return null;
+  return serviceCapabilities.statuses.ollama?.message || "Explore is temporarily unavailable.";
+});
+
+const ttsUnavailableReason = computed(() => {
+  if (ttsEnabled.value) return null;
+  return serviceCapabilities.statuses.voiceAi?.message || "Read aloud is temporarily unavailable.";
+});
+
+async function refreshFeatureAvailability() {
+  serviceCapabilities.loading = true;
+  try {
+    const payload = await getHealth();
+    const exploreAvailable = payload?.features?.explore?.available;
+    const readAloudAvailable = payload?.features?.read_aloud?.available;
+
+    serviceCapabilities.features.explore =
+      typeof exploreAvailable === "boolean" ? exploreAvailable : true;
+    serviceCapabilities.features.readAloud =
+      typeof readAloudAvailable === "boolean" ? readAloudAvailable : true;
+    serviceCapabilities.statuses.ollama = payload?.ollama || null;
+    serviceCapabilities.statuses.voiceAi = payload?.voice_ai || null;
+    serviceCapabilities.loaded = true;
+  } catch {
+    // Keep existing defaults so the UI remains usable if health probing fails.
+    serviceCapabilities.loaded = true;
+  } finally {
+    serviceCapabilities.loading = false;
+  }
+}
 
 // ── Reader settings ────────────────────────────────────────────────────────
 const readerSettings = reactive({ fontSize: 'md', lineSpacing: 'normal', font: 'serif', theme: 'light', voiceId: '' });
@@ -197,6 +257,12 @@ const selectedChapterEntity = computed(() => {
   return entities.find((entity) => entity.id === selectedEntityId.value) || null;
 });
 
+const chapterContextEntitiesForInsights = computed(() => {
+  const baseView = panelStack.value[0];
+  if (!baseView || baseView.type !== "chapterContext" || baseView.status !== "ready") return [];
+  return Array.isArray(baseView.data?.entities) ? baseView.data.entities : [];
+});
+
 const selectedEntityFromStack = computed(() => {
   if (!Number.isFinite(selectedEntityId.value)) return null;
   for (let i = panelStack.value.length - 1; i >= 0; i -= 1) {
@@ -253,8 +319,87 @@ const activeEntityHighlightTerms = computed(() => {
   return selectedEntityTerms.value;
 });
 
+const readerHasSelection = computed(() => readerUx.hasSelection.value);
+const readerSelectionLabel = computed(() => readerUx.selectionLabel.value);
+const showSelectionExploreStarter = computed(() => {
+  if (!readerHasSelection.value) return false;
+  if (String(quickQuery.value || "").trim()) return false;
+  const type = currentView.value?.type || null;
+  return type == null || type === "chapterContext";
+});
+
 const displayBooks = computed(() =>
   books.value.map(b => ({ ...b, displayName: getDisplayBookName(b.book_id, b.name) }))
+);
+
+watch(
+  [bookId, activeBookName, chapter, translation],
+  ([nextBookId, nextBookLabel, nextChapter, nextTranslation]) => {
+    readerUx.setLocation({
+      bookId: nextBookId,
+      bookLabel: nextBookLabel || nextBookId,
+      chapter: nextChapter,
+      translationId: nextTranslation,
+    });
+  },
+  { immediate: true }
+);
+
+watch(
+  quickQuery,
+  (value) => {
+    readerUx.setPromptText(value);
+  },
+  { immediate: true }
+);
+
+watch(
+  activeVerse,
+  (verse) => {
+    readerUx.focusVerse(Number.isFinite(verse) ? verse : null);
+  },
+  { immediate: true }
+);
+
+watch(
+  [libraryDrawerOpen, insightsDrawerOpen, showLibraryColumn, showInsightsColumn],
+  ([libraryDrawer, insightsDrawer, libraryColumn, insightsColumn]) => {
+    readerUx.setUiState({
+      isLibraryOpen: Boolean(libraryDrawer || libraryColumn),
+      isInsightsOpen: Boolean(insightsDrawer || insightsColumn),
+    });
+  },
+  { immediate: true }
+);
+
+watch(
+  selectedEntityId,
+  (value) => {
+    const ids = Number.isFinite(Number(value)) ? [String(Number(value))] : [];
+    readerUx.setSelectedEntities(ids);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => [
+    tts.state.playing,
+    tts.state.paused,
+    tts.state.activeVerseNumber,
+    tts.state.verseStart,
+    tts.state.speed,
+    readerSettings.voiceId,
+  ],
+  () => {
+    readerUx.setTtsState({
+      status: tts.state.playing ? "playing" : tts.state.paused ? "paused" : "idle",
+      fromVerse: tts.state.verseStart ?? null,
+      currentVerse: tts.state.activeVerseNumber ?? null,
+      voiceId: readerSettings.voiceId || "",
+      speed: Number.isFinite(Number(tts.state.speed)) ? Number(tts.state.speed) : 1,
+    });
+  },
+  { immediate: true }
 );
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -263,8 +408,9 @@ onMounted(async () => {
   const saved = localStorage.getItem('scriptorium-reader-settings');
   if (saved) try { Object.assign(readerSettings, JSON.parse(saved)); } catch {}
   applySettingsCSSVars();
+  await refreshFeatureAvailability();
   // If no voice saved yet, auto-pick based on current translation.
-  if (!readerSettings.voiceId) {
+  if (!readerSettings.voiceId && ttsEnabled.value) {
     const voices = await fetchVoices();
     readerSettings.voiceId = pickVoiceForLanguage(voices, translationLanguage(translation.value), "");
   }
@@ -279,9 +425,11 @@ watch(readerSettings, () => {
 watch(translation, async (next, prev) => {
   if (next === prev) return;
   // Auto-select voice matching new language, unless current voice already matches.
-  const voices = await fetchVoices();
-  const lang = translationLanguage(next);
-  readerSettings.voiceId = pickVoiceForLanguage(voices, lang, readerSettings.voiceId);
+  if (ttsEnabled.value) {
+    const voices = await fetchVoices();
+    const lang = translationLanguage(next);
+    readerSettings.voiceId = pickVoiceForLanguage(voices, lang, readerSettings.voiceId);
+  }
   await initializeReader();
 });
 
@@ -296,6 +444,8 @@ async function initializeReader() {
   readerLoading.value = true;
   readerError.value = null;
   activeVerse.value = null;
+  readerUx.setSelectionNone();
+  readerUx.setUiState({ chromeHidden: false });
   panelStack.value = [];
 
   try {
@@ -329,10 +479,13 @@ async function initializeReader() {
 }
 
 async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) {
+  tts.stop();
   const requestToken = ++chapterRequestToken;
   readerLoading.value = true;
   readerError.value = null;
   selectedEntityId.value = null;
+  readerUx.setSelectionNone();
+  readerUx.setUiState({ chromeHidden: false });
 
   try {
     const payload = await getChapter(nextBookId, nextChapter, translation.value);
@@ -499,6 +652,8 @@ function getActiveEntityIdsForAsk() {
 }
 
 function getAskAnchorVerse() {
+  const range = readerUx.selectedRangeNormalized.value;
+  if (range?.start != null) return range.start;
   if (Number.isFinite(activeVerse.value)) return activeVerse.value;
   const firstChapterVerse = Number(chapterData.value?.verses?.[0]?.verse);
   return Number.isFinite(firstChapterVerse) ? firstChapterVerse : 1;
@@ -614,17 +769,34 @@ function onVerseChange(event) {
 }
 
 function onSelectVerse(verse) {
-  activeVerse.value = activeVerse.value === verse ? null : verse;
+  const verseNumber = Number(verse);
+  if (!Number.isFinite(verseNumber)) return;
+  if (activeVerse.value === verseNumber && readerUx.state.selection.mode === "single") {
+    activeVerse.value = null;
+    readerUx.setSelectionNone();
+    return;
+  }
+  activeVerse.value = verseNumber;
+  readerUx.setSelectionSingle(verseNumber);
+}
+
+function onExtendSelection(verse) {
+  const verseNumber = Number(verse);
+  if (!Number.isFinite(verseNumber)) return;
+  activeVerse.value = verseNumber;
+  readerUx.extendSelectionToVerse(verseNumber);
 }
 
 function onActivateVerse(verse) {
   const verseNumber = Number(verse);
   if (!Number.isFinite(verseNumber)) return;
   activeVerse.value = verseNumber;
+  readerUx.focusVerse(verseNumber);
 }
 
 function onClearSelection() {
   activeVerse.value = null;
+  readerUx.clearSelection();
 }
 
 async function onVerseStep(payload) {
@@ -636,6 +808,8 @@ async function onVerseStep(payload) {
     typeof payload === "object" && payload != null && Number.isFinite(Number(payload.fromVerse))
       ? Number(payload.fromVerse)
       : null;
+  const extendSelection =
+    Boolean(typeof payload === "object" && payload != null && payload.extend);
   if (!Number.isFinite(direction) || direction === 0) return;
 
   if (readerLoading.value) return;
@@ -656,6 +830,11 @@ async function onVerseStep(payload) {
   if (direction < 0) {
     if (currentVerse > firstVerse && currentIndex > 0) {
       activeVerse.value = verses[currentIndex - 1];
+      if (extendSelection) {
+        if (readerUx.state.selection.mode === "none") readerUx.setSelectionRange(currentVerse, activeVerse.value);
+        else readerUx.extendSelectionToVerse(activeVerse.value);
+      }
+      else readerUx.setSelectionSingle(activeVerse.value);
       return;
     }
     const prevNav = chapterData.value?.prev;
@@ -669,6 +848,11 @@ async function onVerseStep(payload) {
 
   if (currentVerse < lastVerse && currentIndex < verses.length - 1) {
     activeVerse.value = verses[currentIndex + 1];
+    if (extendSelection) {
+      if (readerUx.state.selection.mode === "none") readerUx.setSelectionRange(currentVerse, activeVerse.value);
+      else readerUx.extendSelectionToVerse(activeVerse.value);
+    }
+    else readerUx.setSelectionSingle(activeVerse.value);
     return;
   }
   const nextNav = chapterData.value?.next;
@@ -677,6 +861,52 @@ async function onVerseStep(payload) {
   if (!nextBook) return;
   const nextChapter = nextNav.chapter ?? 1;
   await loadChapter(nextNav.book_id, nextChapter, { focusVerse: 1 });
+}
+
+async function onExploreSelection(payload = {}) {
+  const verseNumber = Number(payload?.verse);
+  if (Number.isFinite(verseNumber)) activeVerse.value = verseNumber;
+  readerUx.prepareExploreTrigger({
+    verse: Number.isFinite(verseNumber) ? verseNumber : null,
+    fallbackVerse: activeVerse.value,
+    selectedEntities: getActiveEntityIdsForAsk(),
+  });
+
+  // If an entity detail is on top of the stack, pop back to the base view so
+  // the explore-selection starter is visible. selectedEntityId is preserved so
+  // the entity still feeds into the query as context.
+  if (currentView.value?.type === "entityDetail" && panelStack.value.length > 1) {
+    panelStack.value = panelStack.value.slice(0, 1);
+  }
+
+  if (!exploreEnabled.value) {
+    exploreError.value = exploreUnavailableReason.value || "Explore is temporarily unavailable.";
+    return;
+  }
+
+  await ensureInsightsVisibleAfterExplore();
+}
+
+function selectionPromptByChip(chipKey, selectionLabel) {
+  const refLabel = selectionLabel || buildAnchor().reference;
+  switch (String(chipKey || "")) {
+    case "summary":
+      return `Give a concise summary of ${refLabel} in context.`;
+    case "themes":
+      return `What are the main themes in ${refLabel}?`;
+    case "entities":
+      return `Identify the key people and places in ${refLabel}.`;
+    case "cross_refs":
+      return `Show relevant cross references for ${refLabel} and explain the connections.`;
+    default:
+      return `Explain ${refLabel} in context.`;
+  }
+}
+
+async function onQuickExploreChip(chipKey) {
+  if (!readerHasSelection.value || isExploring.value) return;
+  quickQuery.value = selectionPromptByChip(chipKey, readerSelectionLabel.value);
+  await onExploreQuery();
 }
 
 async function onNavigate(direction) {
@@ -688,12 +918,6 @@ async function onNavigate(direction) {
   const targetVerse =
     direction === "next" ? 1 : getRememberedVerse(nav.book_id, targetChapter) ?? 1;
   await loadChapter(nav.book_id, targetChapter, { focusVerse: targetVerse });
-}
-
-async function onFindParallels(verse) {
-  const text = getVerseText(verse);
-  if (!text) return;
-  await runSearch(text, buildAnchor(verse), { includeEntities: false });
 }
 
 function classifyEntityGroup(entityType) {
@@ -724,27 +948,36 @@ function splitEntityMatches(entities) {
 }
 
 async function ensureInsightsVisibleAfterExplore() {
-  if (isMobile.value) {
-    insightsOpen.value = true;
-  } else if (isTablet.value && libraryPinned.value) {
-    insightsOpen.value = true;
-  } else {
-    insightsPinned.value = true;
-    insightsOpen.value = false;
-  }
+  applyInsightsOpenPlan(
+    readerUx.planInsightsOpen({
+      isMobile: isMobile.value,
+      isTablet: isTablet.value,
+      libraryPinned: libraryPinned.value,
+    })
+  );
 
   await nextTick();
+  const sheetScroll = document.querySelector(".insights-sheet-panel .view-scroll");
   const drawerScroll = document.querySelector(".drawer-panel--right .view-scroll");
   const columnScroll = document.querySelector(".context-column .view-scroll");
-  const target = insightsOpen.value ? drawerScroll : columnScroll;
+  const target = isMobile.value ? sheetScroll : (insightsOpen.value ? drawerScroll : columnScroll);
   if (target && typeof target.scrollTo === "function") {
     target.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
 
 async function onExploreQuery() {
+  if (!exploreEnabled.value) {
+    exploreError.value = exploreUnavailableReason.value || "Explore is temporarily unavailable.";
+    return;
+  }
   const query = quickQuery.value.trim();
   if (!query || isExploring.value) return;
+  readerUx.prepareExploreTrigger({
+    promptText: query,
+    fallbackVerse: activeVerse.value,
+    selectedEntities: getActiveEntityIdsForAsk(),
+  });
   const anchor = buildAnchor();
   isExploring.value = true;
   exploreError.value = null;
@@ -797,14 +1030,19 @@ async function onLibraryNavigate({ bookId: nextBookId, chapter: nextChapter }) {
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 function buildAnchor(verse = null) {
-  const finalVerse = verse ?? activeVerse.value;
+  const range = readerUx.selectedRangeNormalized.value;
+  const finalVerse = verse ?? activeVerse.value ?? range?.start ?? null;
   const base = `${bookId.value} ${chapter.value}`;
+  const rangeRef = range && range.start !== range.end ? `${base}:${range.start}-${range.end}` : null;
+  const singleRef = finalVerse == null ? base : `${base}:${finalVerse}`;
   return {
     translation: translation.value,
     book_id: bookId.value,
     chapter: chapter.value,
     verse: finalVerse,
-    reference: finalVerse == null ? base : `${base}:${finalVerse}`,
+    verse_start: range?.start ?? null,
+    verse_end: range?.end ?? null,
+    reference: rangeRef || singleRef,
   };
 }
 
@@ -869,6 +1107,11 @@ function getDisplayBookName(id, fallbackName) {
         :selected-highlight-terms="activeEntityHighlightTerms"
         :selected-entity-verses="selectedEntityVerses"
         :active-verse="activeVerse"
+        :selection-mode="readerUx.state.selection.mode"
+        :selection-start-verse="readerUx.state.selection.startVerse"
+        :selection-end-verse="readerUx.state.selection.endVerse"
+        :selection-label="readerSelectionLabel"
+        :chrome-hidden="readerUx.state.ui.chromeHidden"
         :has-prev="Boolean(chapterData?.prev)"
         :has-next="Boolean(chapterData?.next)"
         :loading="readerLoading"
@@ -879,11 +1122,16 @@ function getDisplayBookName(id, fallbackName) {
         :voice-id="readerSettings.voiceId"
         :is-exploring="isExploring"
         :explore-error="exploreError"
+        :explore-enabled="exploreEnabled"
+        :explore-disabled-reason="exploreUnavailableReason"
+        :tts-enabled="ttsEnabled"
+        :tts-disabled-reason="ttsUnavailableReason"
         :library-active="libraryActive"
         :insights-active="insightsActive"
         @select-verse="onSelectVerse"
         @activate-verse="onActivateVerse"
-        @find-parallels="onFindParallels"
+        @extend-selection="onExtendSelection"
+        @explore-selection="onExploreSelection"
         @clear-selection="onClearSelection"
         @go-prev="onNavigate('prev')"
         @go-next="onNavigate('next')"
@@ -905,13 +1153,19 @@ function getDisplayBookName(id, fallbackName) {
           :can-go-back="canGoBack"
           :stack-depth="stackDepth"
           :selected-entity-id="selectedEntityId"
+          :chapter-entities="chapterContextEntitiesForInsights"
           :book-name="activeBookName"
           :chapter="chapter"
           :chapter-total="activeBook?.chapters || null"
           :verse-count="chapterData?.verses?.length || 0"
           :selected-entity-type="selectedEntitySource?.type || null"
+          :has-selection="readerHasSelection"
+          :selection-label="readerSelectionLabel"
+          :show-selection-explore-starter="showSelectionExploreStarter"
           @go-back="goBack"
           @clear-context="onClearContext"
+          @clear-selection="onClearSelection"
+          @quick-explore="onQuickExploreChip"
           @select-entity="onSelectEntity"
           @open-reference="onOpenReference"
           @open-entity="onOpenEntity"
@@ -937,7 +1191,38 @@ function getDisplayBookName(id, fallbackName) {
     </DrawerShell>
 
     <!-- ── Insights drawer (mobile / unpinned) ── -->
+    <InsightsSheet
+      v-if="isMobile"
+      :is-open="insightsDrawerOpen"
+      aria-label="Insights"
+      @close="insightsOpen = false"
+    >
+      <ContextPane
+        :current-view="currentView"
+        :can-go-back="canGoBack"
+        :stack-depth="stackDepth"
+        :selected-entity-id="selectedEntityId"
+        :chapter-entities="chapterContextEntitiesForInsights"
+        :book-name="activeBookName"
+        :chapter="chapter"
+        :chapter-total="activeBook?.chapters || null"
+        :verse-count="chapterData?.verses?.length || 0"
+        :selected-entity-type="selectedEntitySource?.type || null"
+        :has-selection="readerHasSelection"
+        :selection-label="readerSelectionLabel"
+        :show-selection-explore-starter="showSelectionExploreStarter"
+        @go-back="goBack"
+        @clear-context="onInsightsClearContext"
+        @clear-selection="onClearSelection"
+        @quick-explore="onQuickExploreChip"
+        @select-entity="onSelectEntity"
+        @open-reference="onOpenReference"
+        @open-entity="onOpenEntity"
+      />
+    </InsightsSheet>
+
     <DrawerShell
+      v-else
       :is-open="insightsDrawerOpen"
       side="right"
       aria-label="Insights"
@@ -948,13 +1233,19 @@ function getDisplayBookName(id, fallbackName) {
         :can-go-back="canGoBack"
         :stack-depth="stackDepth"
         :selected-entity-id="selectedEntityId"
+        :chapter-entities="chapterContextEntitiesForInsights"
         :book-name="activeBookName"
         :chapter="chapter"
         :chapter-total="activeBook?.chapters || null"
         :verse-count="chapterData?.verses?.length || 0"
         :selected-entity-type="selectedEntitySource?.type || null"
+        :has-selection="readerHasSelection"
+        :selection-label="readerSelectionLabel"
+        :show-selection-explore-starter="showSelectionExploreStarter"
         @go-back="goBack"
         @clear-context="onInsightsClearContext"
+        @clear-selection="onClearSelection"
+        @quick-explore="onQuickExploreChip"
         @select-entity="onSelectEntity"
         @open-reference="onOpenReference"
         @open-entity="onOpenEntity"

@@ -8,6 +8,11 @@ defineProps({
   quickQuery: { type: String, default: "" },
   isExploring: { type: Boolean, default: false },
   exploreError: { type: String, default: null },
+  chromeHidden: { type: Boolean, default: false },
+  exploreEnabled: { type: Boolean, default: true },
+  exploreDisabledReason: { type: String, default: null },
+  ttsEnabled: { type: Boolean, default: true },
+  ttsDisabledReason: { type: String, default: null },
   libraryActive: { type: Boolean, default: false },
   insightsActive: { type: Boolean, default: false },
 });
@@ -38,7 +43,7 @@ function openSettings() {
 </script>
 
 <template>
-  <header class="global-top-bar">
+  <header class="global-top-bar" :class="{ 'global-top-bar--hidden': chromeHidden }">
     <div class="global-top-bar-row">
       <button
         class="nav-icon-btn panel-toggle-btn"
@@ -57,16 +62,18 @@ function openSettings() {
         :value="quickQuery"
         type="text"
         class="field-input gtb-explore-input"
-        placeholder="Ask about this passage..."
+        :placeholder="exploreEnabled ? 'Ask about this passage...' : 'Explore is unavailable right now'"
         aria-label="Explore query"
         :aria-busy="isExploring ? 'true' : 'false'"
+        :disabled="!exploreEnabled"
         @input="emit('quick-query-change', $event.target.value)"
         @keyup.enter.prevent="emit('explore-query')"
       />
       <button
         class="primary-btn compact gtb-explore-btn"
         type="button"
-        :disabled="isExploring"
+        :disabled="isExploring || !exploreEnabled"
+        :title="!exploreEnabled ? (exploreDisabledReason || 'Explore is unavailable') : 'Explore passage insights'"
         :aria-busy="isExploring ? 'true' : 'false'"
         @click="emit('explore-query')"
       >
@@ -106,6 +113,8 @@ function openSettings() {
         v-if="showSettings"
         :translation="translation"
         :available-translations="availableTranslations"
+        :tts-enabled="ttsEnabled"
+        :tts-disabled-reason="ttsDisabledReason"
         :style="{
           position: 'fixed',
           top: settingsAnchor.top + 'px',
@@ -118,8 +127,8 @@ function openSettings() {
       />
     </Teleport>
 
-    <p v-if="exploreError" class="gtb-explore-error" role="status" aria-live="polite">
-      {{ exploreError }}
+    <p v-if="exploreError || (!exploreEnabled && exploreDisabledReason)" class="gtb-explore-error" role="status" aria-live="polite">
+      {{ exploreError || exploreDisabledReason }}
     </p>
   </header>
 </template>
