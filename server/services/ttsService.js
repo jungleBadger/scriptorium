@@ -153,10 +153,20 @@ function isVoiceAIConcurrencyLimit(statusCode, message) {
   return /too many concurrent tts generations/i.test(String(message));
 }
 
+function isVoiceAIInsufficientCredits(statusCode, message) {
+  if (statusCode !== 402) return false;
+  return /insufficient credits to generate speech/i.test(String(message));
+}
+
 function makeVoiceAIError(statusCode, bodyText) {
   const err = new Error(`voice.ai TTS failed (${statusCode}): ${bodyText}`);
   err.statusCode = statusCode;
   err.retryable = isVoiceAIConcurrencyLimit(statusCode, bodyText);
+  err.provider = "voice_ai";
+  if (isVoiceAIInsufficientCredits(statusCode, bodyText)) {
+    err.code = "VOICE_AI_INSUFFICIENT_CREDITS";
+    err.userMessage = "Read aloud is unavailable because the voice.ai account has insufficient credits.";
+  }
   return err;
 }
 

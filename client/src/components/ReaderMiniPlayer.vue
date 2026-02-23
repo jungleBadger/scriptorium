@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useTts } from '../composables/useTts.js';
+import Icon from './ui/Icon.vue';
 
 const tts = useTts();
 
@@ -41,7 +42,7 @@ function onClose() {
         <div class="mini-player-meta">
           <span class="mini-player-icon" aria-hidden="true">
             <span v-if="tts.state.loading" class="mini-player-spinner"></span>
-            <span v-else>Listen</span>
+            <Icon v-else name="Volume2" :size="22" class="text-primary-600" />
           </span>
           <div class="mini-player-text">
             <span class="mini-player-label">{{ label }}</span>
@@ -51,52 +52,58 @@ function onClose() {
 
         <div class="mini-player-actions">
           <button
-            class="mini-player-btn"
+            class="mini-player-btn group"
             type="button"
             :disabled="!tts.state.canPrev || tts.state.loading"
             aria-label="Previous verse"
             title="Previous verse"
             @click="tts.prevVerse()"
           >
-            Prev
+            <Icon name="SkipBack" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
           </button>
           <button
-            class="mini-player-btn mini-player-btn--primary"
+            class="mini-player-btn mini-player-btn--primary group"
             type="button"
             :disabled="tts.state.loading"
             :aria-label="tts.state.playing ? 'Pause reading' : 'Resume reading'"
             :title="tts.state.playing ? 'Pause reading' : 'Resume reading'"
             @click="tts.togglePlayPause()"
           >
-            {{ tts.state.playing ? 'Pause' : 'Play' }}
+            <Icon
+              :name="tts.state.playing ? 'Pause' : 'Play'"
+              :size="16"
+              class="text-primary-600"
+              aria-hidden="true"
+            />
           </button>
           <button
-            class="mini-player-btn"
+            class="mini-player-btn group"
             type="button"
             :disabled="!tts.state.canNext || tts.state.loading"
             aria-label="Next verse"
             title="Next verse"
             @click="tts.nextVerse()"
           >
-            Next
+            <Icon name="SkipForward" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
           </button>
           <button
-            class="mini-player-speed"
+            class="mini-player-speed group flex items-center gap-2"
             type="button"
             aria-label="Change playback speed"
             :title="`Playback speed ${speedLabel}`"
             @click="tts.cycleSpeed()"
           >
-            {{ speedLabel }}
+            <Icon name="Gauge" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
+            <span>{{ speedLabel }}</span>
           </button>
           <button
-            class="mini-player-close"
+            class="mini-player-close group"
             type="button"
             aria-label="Close read aloud player"
             title="Stop and close"
             @click="onClose"
           >
-            x
+            <Icon name="X" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
           </button>
         </div>
       </div>

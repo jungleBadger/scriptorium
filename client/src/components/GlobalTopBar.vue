@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from "vue";
 import ReaderSettingsPanel from "./ReaderSettingsPanel.vue";
+import Icon from "./ui/Icon.vue";
 
 defineProps({
   translation: { type: String, required: true },
@@ -46,7 +47,7 @@ function openSettings() {
   <header class="global-top-bar" :class="{ 'global-top-bar--hidden': chromeHidden }">
     <div class="global-top-bar-row">
       <button
-        class="nav-icon-btn panel-toggle-btn"
+        class="nav-icon-btn panel-toggle-btn group flex items-center gap-2"
         type="button"
         :aria-pressed="libraryActive"
         :class="{ 'panel-toggle-btn--active': libraryActive }"
@@ -54,7 +55,9 @@ function openSettings() {
         title="Library"
         @click="emit('toggle-library')"
       >
-        <span class="panel-toggle-icon" aria-hidden="true">&#9776;</span>
+        <span class="panel-toggle-icon text-neutral-600 transition-colors group-hover:text-neutral-900" aria-hidden="true">
+          <Icon name="BookOpen" :size="20" />
+        </span>
         <span class="panel-toggle-label">Library</span>
       </button>
 
@@ -70,32 +73,41 @@ function openSettings() {
         @keyup.enter.prevent="emit('explore-query')"
       />
       <button
-        class="primary-btn compact gtb-explore-btn"
+        class="primary-btn compact gtb-explore-btn flex items-center gap-2"
         type="button"
         :disabled="isExploring || !exploreEnabled"
         :title="!exploreEnabled ? (exploreDisabledReason || 'Explore is unavailable') : 'Explore passage insights'"
         :aria-busy="isExploring ? 'true' : 'false'"
         @click="emit('explore-query')"
       >
-        <span v-if="isExploring" class="gtb-spinner" aria-hidden="true"></span>
-        {{ isExploring ? "Exploring..." : "Explore" }}
+        <span class="inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+          <span v-if="isExploring" class="gtb-spinner"></span>
+          <Icon v-else name="Compass" :size="16" class="text-primary-600" />
+        </span>
+        <span>{{ isExploring ? "Exploring..." : "Explore" }}</span>
       </button>
 
       <span class="gtb-spacer" aria-hidden="true"></span>
 
       <button
         ref="gearBtnRef"
-        class="nav-icon-btn reader-settings-btn"
+        class="nav-icon-btn reader-settings-btn group"
         type="button"
         :aria-pressed="showSettings"
+        aria-label="Reader settings"
         title="Reader settings"
         @click="openSettings"
       >
-        &#9881;
+        <Icon
+          name="Settings"
+          :size="20"
+          class="text-neutral-600 transition-colors group-hover:text-neutral-900"
+          aria-hidden="true"
+        />
       </button>
 
       <button
-        class="nav-icon-btn panel-toggle-btn"
+        class="nav-icon-btn panel-toggle-btn group flex items-center gap-2"
         type="button"
         :aria-pressed="insightsActive"
         :class="{ 'panel-toggle-btn--active': insightsActive }"
@@ -103,8 +115,10 @@ function openSettings() {
         title="Insights"
         @click="emit('toggle-insights')"
       >
+        <span class="panel-toggle-icon text-neutral-600 transition-colors group-hover:text-neutral-900" aria-hidden="true">
+          <Icon name="Sparkles" :size="20" />
+        </span>
         <span class="panel-toggle-label">Insights</span>
-        <span class="panel-toggle-icon" aria-hidden="true">&#10024;</span>
       </button>
     </div>
 

@@ -1,5 +1,6 @@
 ﻿<script setup>
 import { computed, ref, watch } from "vue";
+import Icon from "../ui/Icon.vue";
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -201,6 +202,12 @@ function toggleChapterSummary() {
   chapterSummaryOpen.value = !chapterSummaryOpen.value;
 }
 
+function getGroupIconName(groupKey) {
+  if (groupKey === "places") return "MapPin";
+  if (groupKey === "people") return "Users";
+  return null;
+}
+
 function getBaseType(type) {
   const value = String(type || "").trim().toLowerCase();
   if (!value) return "other";
@@ -344,9 +351,12 @@ function shouldShowSubtypeTag(entity) {
 
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="toggleChapterSummary">
-          <span class="entity-group-title">Chapter summary</span>
-          <span :class="['entity-group-chevron', { 'entity-group-chevron--open': chapterSummaryOpen }]">
-            v
+          <span class="entity-group-title flex items-center gap-2">
+            <Icon name="FileText" :size="18" class="text-neutral-600" aria-hidden="true" />
+            <span>Chapter summary</span>
+          </span>
+          <span class="entity-group-chevron">
+            <Icon :name="chapterSummaryOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
           </span>
         </button>
 
@@ -360,9 +370,18 @@ function shouldShowSubtypeTag(entity) {
       <div v-if="groupedEntities.length" class="entity-group-list">
         <section v-for="group in groupedEntities" :key="group.key" class="entity-group">
           <button class="entity-group-toggle" type="button" @click="toggleGroup(group.key)">
-            <span class="entity-group-title">{{ group.title }} ({{ group.entities.length }})</span>
-            <span :class="['entity-group-chevron', { 'entity-group-chevron--open': isGroupOpen(group.key) }]">
-              v
+            <span class="entity-group-title flex items-center gap-2">
+              <Icon
+                v-if="getGroupIconName(group.key)"
+                :name="getGroupIconName(group.key)"
+                :size="18"
+                class="text-neutral-600"
+                aria-hidden="true"
+              />
+              <span>{{ group.title }} ({{ group.entities.length }})</span>
+            </span>
+            <span class="entity-group-chevron">
+              <Icon :name="isGroupOpen(group.key) ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
             </span>
           </button>
 

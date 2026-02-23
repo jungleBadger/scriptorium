@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { PT_BR_BOOK_NAMES } from '../data/bookNamesPtBr.js'
+import Icon from './ui/Icon.vue'
 
 const props = defineProps({
   books:          { type: Array,  default: () => [] },
@@ -131,31 +132,45 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
     <header class="library-header">
       <h2 class="library-title">Library</h2>
       <button
-        class="nav-icon-btn"
+        class="nav-icon-btn group"
         type="button"
         aria-label="Close Library"
         @click="emit('close')"
       >
-        &times;
+        <Icon
+          name="X"
+          :size="20"
+          class="text-neutral-600 transition-colors group-hover:text-neutral-900"
+          aria-hidden="true"
+        />
       </button>
     </header>
 
     <!-- Search -->
     <div class="library-search">
-      <input
+      <div class="library-search-field">
+        <Icon
+        name="Search"
+        :size="18"
+        class="library-search-icon text-neutral-600"
+        aria-hidden="true"
+      />
+        <input
         v-model="searchQuery"
         type="search"
-        class="library-search-input"
+        class="library-search-input library-search-input--with-icon"
         placeholder="Search books…"
         aria-label="Search books"
       />
+      </div>
     </div>
 
     <!-- Chapter Picker -->
     <div v-if="pickerBook" class="library-picker">
       <div class="library-picker-header">
-        <button class="library-picker-back nav-icon-btn" type="button" @click="closePicker">
-          &larr; Books
+        <button class="library-picker-back nav-icon-btn flex items-center gap-2" type="button" @click="closePicker">
+          <Icon name="ChevronLeft" :size="16" class="text-neutral-600" aria-hidden="true" />
+          <span>Books</span>
         </button>
         <span class="library-picker-title">{{ pickerBook.displayName || pickerBook.name }}</span>
         <button
@@ -255,7 +270,13 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
           @click="otOpen = !otOpen"
         >
           <span>Old Testament</span>
-          <span class="library-chevron" :class="{ 'library-chevron--open': otOpen }" aria-hidden="true">›</span>
+          <Icon
+            name="ChevronRight"
+            :size="16"
+            class="library-chevron text-neutral-600"
+            :class="{ 'library-chevron--open': otOpen }"
+            aria-hidden="true"
+          />
         </button>
         <ul v-show="otOpen" class="library-book-list library-book-list--testament">
           <li v-for="book in otBooks" :key="book.book_id">
@@ -280,7 +301,13 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
           @click="ntOpen = !ntOpen"
         >
           <span>New Testament</span>
-          <span class="library-chevron" :class="{ 'library-chevron--open': ntOpen }" aria-hidden="true">›</span>
+          <Icon
+            name="ChevronRight"
+            :size="16"
+            class="library-chevron text-neutral-600"
+            :class="{ 'library-chevron--open': ntOpen }"
+            aria-hidden="true"
+          />
         </button>
         <ul v-show="ntOpen" class="library-book-list library-book-list--testament">
           <li v-for="book in ntBooks" :key="book.book_id">

@@ -37,6 +37,7 @@ let sessionToken = 0;
 let audioEndedHandler = null;
 let audioErrorHandler = null;
 const pendingTimeouts = new Set();
+let providerCreditsExhausted = false;
 
 const SPEED_STEPS = [0.85, 1, 1.15, 1.3, 1.5];
 
@@ -87,10 +88,30 @@ function normalizeVerseTtsPayload(data) {
   };
 }
 
+function isTtsCreditExhaustedError(err) {
+  const status = Number(err?.statusCode ?? err?.status);
+  if (status === 402) return true;
+  const code = String(err?.code || "").trim().toUpperCase();
+  if (code === "VOICE_AI_INSUFFICIENT_CREDITS") return true;
+  return /insufficient credits to generate speech/i.test(String(err?.message || ""));
+}
+
+function formatTtsErrorMessage(err, fallbackMessage) {
+  if (isTtsCreditExhaustedError(err)) {
+    return "Read aloud is unavailable right now because the voice service has insufficient credits.";
+  }
+  return fallbackMessage || err?.message || "TTS request failed";
+}
+
 async function parseTtsJsonResponse(res) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `TTS error ${res.status}`);
+    const err = new Error(body.error || `TTS error ${res.status}`);
+    err.statusCode = res.status;
+    err.code = body?.code || null;
+    err.retryable = Boolean(body?.retryable);
+    err.body = body;
+    throw err;
   }
   return res.json();
 }
@@ -203,6 +224,7 @@ function fullReset() {
   verseFrac = 0;
   sessionParams = null;
   prefetched.clear();
+  providerCreditsExhausted = false;
 
   Object.assign(state, {
     loading: false,
@@ -224,8 +246,9 @@ function fullReset() {
 }
 
 // Prefetch helper
-function prefetchSingleVerse(verseNumber) {
+function prefetchSingleVerse(verseNumber, { force = false } = {}) {
   if (!sessionParams || verseNumber == null || prefetched.has(verseNumber)) return;
+  if (providerCreditsExhausted && !force) return;
   const requestBase = currentSessionRequestBase();
 
   let pending;
@@ -239,6 +262,7 @@ function prefetchSingleVerse(verseNumber) {
 
 function prefetchFrom(startIdx) {
   if (!sessionParams) return;
+  if (providerCreditsExhausted) return;
   if (startIdx >= queue.length) return;
 
   const end = Math.min(startIdx + LOOK_AHEAD, queue.length - 1);
@@ -269,6 +293,9 @@ function prefetchFrom(startIdx) {
 
   let batchPending;
   batchPending = fetchChapterTtsManifest(batchStartVerse, batchEndVerse, requestBase).catch((err) => {
+    if (isTtsCreditExhaustedError(err)) {
+      throw err;
+    }
     try {
       console.warn(
         `TTS chapter prefetch failed for verses ${batchStartVerse}-${batchEndVerse}; falling back to per-verse requests.`,
@@ -317,13 +344,24 @@ async function playVerseAt(idx, token) {
   function failCurrentVerseAndMaybeContinue(message, cause) {
     if (!isCurrentSession(token)) return;
 
-    const detail = `Read aloud failed at verse ${verseNumber}: ${message}`;
-    state.error = detail;
-    try { console.error(detail, cause); } catch {}
+    const creditExhausted = isTtsCreditExhaustedError(cause);
+    if (creditExhausted) {
+      providerCreditsExhausted = true;
+      prefetched.clear();
+    }
+
+    const normalizedMessage = creditExhausted
+      ? "Read aloud generation is unavailable right now because the voice service has insufficient credits. Cached verses can still play."
+      : formatTtsErrorMessage(cause, message);
+    const detailForLog = `Read aloud failed at verse ${verseNumber}: ${message}`;
+    state.error = normalizedMessage;
+    try { console.error(detailForLog, cause); } catch {}
 
     cleanupAudio();
 
-    const canContinue = queue.length > 1 && idx < queue.length - 1;
+    const canContinue =
+      queue.length > 1 &&
+      idx < queue.length - 1;
     if (canContinue) {
       state.playing = false;
       state.paused = false;
@@ -348,7 +386,7 @@ async function playVerseAt(idx, token) {
 
   // Warm the next few verses early to reduce gaps between verse transitions.
   prefetchFrom(idx + 1);
-  if (!prefetched.has(verseNumber)) prefetchSingleVerse(verseNumber);
+  if (!prefetched.has(verseNumber)) prefetchSingleVerse(verseNumber, { force: true });
 
   let data;
   try {
@@ -557,7 +595,7 @@ export function useTts() {
     });
 
     // Prefetch the first verse immediately, then batch-prefetch look-ahead.
-    prefetchSingleVerse(queue[0]);
+    prefetchSingleVerse(queue[0], { force: true });
     prefetchFrom(1);
     await playVerseAt(0, token);
   }

@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue';
+import Icon from './ui/Icon.vue';
 
 const props = defineProps({
   verseNumber: { type: Number, required: true },
@@ -36,12 +37,13 @@ async function copyVerse() {
 
 <template>
   <div class="verse-action-row" role="toolbar" :aria-label="`Verse ${verseNumber} actions`">
-    <button class="verse-action-btn verse-action-btn--primary" type="button" @click.stop="emit('explore')">
-      Explore
+    <button class="verse-action-btn verse-action-btn--primary group flex items-center gap-2" type="button" @click.stop="emit('explore')">
+      <Icon name="Compass" :size="16" class="text-primary-600" aria-hidden="true" />
+      <span>Explore</span>
     </button>
 
     <button
-      class="verse-action-btn"
+      class="verse-action-btn group flex items-center gap-2"
       :class="{ 'verse-action-btn--active': isSpeaking }"
       type="button"
       :title="(!ttsEnabled && !isSpeaking)
@@ -50,30 +52,45 @@ async function copyVerse() {
       :disabled="isSpeakLoading || (!ttsEnabled && !isSpeaking)"
       @click.stop="emit('speak')"
     >
-      {{ isSpeakLoading ? '...' : isSpeaking ? 'Stop' : 'Listen' }}
+      <Icon name="Volume2" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
+      <span>{{ isSpeakLoading ? '...' : isSpeaking ? 'Stop' : 'Listen' }}</span>
     </button>
 
     <button
-      class="verse-action-btn"
+      class="verse-action-btn group flex items-center gap-2"
       type="button"
       :title="copyStatus === 'copied' ? 'Copied' : 'Copy verse'"
       @click.stop="copyVerse"
     >
-      {{ copyStatus === 'copied' ? 'Copied' : 'Copy' }}
+      <Icon name="Copy" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
+      <span>{{ copyStatus === 'copied' ? 'Copied' : 'Copy' }}</span>
     </button>
 
     <button
-      class="verse-action-btn"
+      class="verse-action-btn group flex items-center gap-2"
       :class="{ 'verse-action-btn--active': isBookmarked }"
       type="button"
       :title="isBookmarked ? 'Remove bookmark' : 'Bookmark verse'"
       @click.stop="emit('toggle-bookmark')"
     >
-      {{ isBookmarked ? 'Bookmarked' : 'Bookmark' }}
+      <Icon
+        name="Bookmark"
+        :size="16"
+        :class="isBookmarked ? 'text-primary-600' : 'text-neutral-600 group-hover:text-neutral-900'"
+        aria-hidden="true"
+      />
+      <span>{{ isBookmarked ? 'Bookmarked' : 'Bookmark' }}</span>
     </button>
 
-    <button v-if="showClear" class="verse-action-btn" type="button" title="Clear selection" @click.stop="emit('clear')">
-      Clear
+    <button
+      v-if="showClear"
+      class="verse-action-btn group flex items-center gap-2"
+      type="button"
+      title="Clear selection"
+      @click.stop="emit('clear')"
+    >
+      <Icon name="X" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
+      <span>Clear</span>
     </button>
   </div>
 </template>

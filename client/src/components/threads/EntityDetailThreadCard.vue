@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { PT_BR_BOOK_NAMES } from "../../data/bookNamesPtBr.js";
 import MapCard from "../MapCard.vue";
+import Icon from "../ui/Icon.vue";
 import {
   formatEntitySubtypeLabel,
   formatEntityTypeLabel,
@@ -368,7 +369,10 @@ function formatVerseHint(chapterVerses) {
       </section>
 
       <section v-if="verseLinks.length" class="stack-block">
-        <p class="section-label">Verse Links</p>
+        <p class="section-label flex items-center gap-2">
+          <Icon name="Link" :size="18" class="text-neutral-600" aria-hidden="true" />
+          <span>Verse Links</span>
+        </p>
         <div class="chip-row">
           <button
             v-for="verseRef in verseLinks.slice(0, 12)"

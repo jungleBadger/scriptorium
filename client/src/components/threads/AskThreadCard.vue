@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
+import Icon from "../ui/Icon.vue";
 import { formatEntitySubtypeLabel, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
 
 const props = defineProps({
@@ -65,7 +66,9 @@ function openEntityRef(ref) {
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="passagesOpen = !passagesOpen">
           <span class="entity-group-title">Relevant Passages ({{ relevantPassages.length }})</span>
-          <span :class="['entity-group-chevron', { 'entity-group-chevron--open': passagesOpen }]">v</span>
+          <span class="entity-group-chevron">
+            <Icon :name="passagesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
+          </span>
         </button>
 
         <div v-if="passagesOpen" class="stack-list">
@@ -89,7 +92,9 @@ function openEntityRef(ref) {
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="entitiesOpen = !entitiesOpen">
           <span class="entity-group-title">Found Entities ({{ foundEntities.length }})</span>
-          <span :class="['entity-group-chevron', { 'entity-group-chevron--open': entitiesOpen }]">v</span>
+          <span class="entity-group-chevron">
+            <Icon :name="entitiesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
+          </span>
         </button>
 
         <div v-if="entitiesOpen" class="entity-context-list">

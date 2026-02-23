@@ -38,12 +38,26 @@ const ttsChapterSchema = {
 };
 
 function sendTtsError(req, reply, err, fallbackMessage) {
-  req.log.error(err);
   const status =
     Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 600
       ? err.statusCode
       : 500;
-  reply.status(status).send({ error: err.message || fallbackMessage });
+  const isExpectedProviderQuota =
+    status === 402 && String(err?.code || "").toUpperCase() === "VOICE_AI_INSUFFICIENT_CREDITS";
+
+  if (isExpectedProviderQuota) {
+    req.log.warn({ err }, "TTS provider credits exhausted");
+  } else if (status >= 500) {
+    req.log.error(err);
+  } else {
+    req.log.warn({ err }, "TTS request failed");
+  }
+
+  reply.status(status).send({
+    error: err?.userMessage || err?.message || fallbackMessage,
+    code: err?.code || (status ? `HTTP_${status}` : "TTS_ERROR"),
+    retryable: Boolean(err?.retryable),
+  });
 }
 
 async function ttsHandler(req, reply) {

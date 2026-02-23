@@ -4,6 +4,7 @@ import ChapterContextThreadCard from "./threads/ChapterContextThreadCard.vue";
 import EntityDetailThreadCard from "./threads/EntityDetailThreadCard.vue";
 import ParallelThreadCard from "./threads/ParallelThreadCard.vue";
 import AskThreadCard from "./threads/AskThreadCard.vue";
+import Icon from "./ui/Icon.vue";
 import { formatEntityTypeLabel } from "../utils/entityTypeLabels.js";
 
 const props = defineProps({
@@ -84,12 +85,13 @@ const headerMetaParts = computed(() => {
       <div class="context-header-left">
         <button
           v-if="canGoBack"
-          class="nav-icon-btn"
+          class="nav-icon-btn flex items-center gap-2"
           type="button"
           aria-label="Back"
           @click="emit('go-back')"
         >
-          &larr; Back
+          <Icon name="ArrowLeft" :size="20" class="text-neutral-600" aria-hidden="true" />
+          <span>Back</span>
         </button>
         <div class="context-header-info">
           <span class="sr-only">Insights panel</span>
@@ -104,13 +106,18 @@ const headerMetaParts = computed(() => {
       </div>
       <button
         v-if="currentView"
-        class="nav-icon-btn context-close-btn"
+        class="nav-icon-btn context-close-btn group"
         type="button"
         aria-label="Close insights"
         title="Close insights"
         @click="emit('clear-context')"
       >
-        &times;
+        <Icon
+          name="X"
+          :size="20"
+          class="text-neutral-600 transition-colors group-hover:text-neutral-900"
+          aria-hidden="true"
+        />
       </button>
     </header>
 

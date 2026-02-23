@@ -11,6 +11,16 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let _client = null;
+const R2_MAX_SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // SigV4 practical max: 7 days
+
+function readSignedUrlTtlSeconds() {
+  const raw = Number(process.env.R2_SIGNED_URL_TTL_SECONDS);
+  if (!Number.isFinite(raw)) return R2_MAX_SIGNED_URL_TTL_SECONDS;
+  const seconds = Math.trunc(raw);
+  return Math.min(R2_MAX_SIGNED_URL_TTL_SECONDS, Math.max(60, seconds));
+}
+
+const R2_DEFAULT_SIGNED_URL_TTL_SECONDS = readSignedUrlTtlSeconds();
 
 function getClient() {
   if (!_client) {
@@ -52,12 +62,17 @@ export async function r2Upload(key, buffer, contentType = "audio/mpeg") {
   );
 }
 
-// Returns a pre-signed URL valid for `expiresIn` seconds (default 24h).
+// Returns a pre-signed URL valid for `expiresIn` seconds.
+// Default is configurable via R2_SIGNED_URL_TTL_SECONDS and clamped to 7 days.
 // The browser uses this URL directly to stream audio with full Range support.
-export async function r2GetSignedUrl(key, expiresIn = 86400) {
+export async function r2GetSignedUrl(key, expiresIn = R2_DEFAULT_SIGNED_URL_TTL_SECONDS) {
+  const ttlSeconds = Math.min(
+    R2_MAX_SIGNED_URL_TTL_SECONDS,
+    Math.max(60, Math.trunc(Number(expiresIn) || R2_DEFAULT_SIGNED_URL_TTL_SECONDS))
+  );
   return getSignedUrl(
     getClient(),
     new GetObjectCommand({ Bucket: bucket(), Key: key }),
-    { expiresIn }
+    { expiresIn: ttlSeconds }
   );
 }

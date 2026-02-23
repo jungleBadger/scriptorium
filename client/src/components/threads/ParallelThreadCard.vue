@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import WhyThisToggle from "../WhyThisToggle.vue";
+import Icon from "../ui/Icon.vue";
 import { formatEntitySubtypeLabel, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
 
 const props = defineProps({
@@ -63,8 +64,13 @@ function openEntity(entity) {
     <div v-else class="stack-list">
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="passagesOpen = !passagesOpen">
-          <span class="entity-group-title">Vector Passages ({{ passages.length }})</span>
-          <span :class="['entity-group-chevron', { 'entity-group-chevron--open': passagesOpen }]">v</span>
+          <span class="entity-group-title flex items-center gap-2">
+            <Icon name="Link" :size="18" class="text-neutral-600" aria-hidden="true" />
+            <span>Vector Passages ({{ passages.length }})</span>
+          </span>
+          <span class="entity-group-chevron">
+            <Icon :name="passagesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
+          </span>
         </button>
 
         <div v-if="passagesOpen" class="stack-list">
@@ -90,8 +96,13 @@ function openEntity(entity) {
 
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="placesOpen = !placesOpen">
-          <span class="entity-group-title">Places ({{ places.length }})</span>
-          <span :class="['entity-group-chevron', { 'entity-group-chevron--open': placesOpen }]">v</span>
+          <span class="entity-group-title flex items-center gap-2">
+            <Icon name="MapPin" :size="18" class="text-neutral-600" aria-hidden="true" />
+            <span>Places ({{ places.length }})</span>
+          </span>
+          <span class="entity-group-chevron">
+            <Icon :name="placesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
+          </span>
         </button>
 
         <div v-if="placesOpen" class="entity-context-list">
@@ -121,8 +132,13 @@ function openEntity(entity) {
 
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="peopleOpen = !peopleOpen">
-          <span class="entity-group-title">People ({{ people.length }})</span>
-          <span :class="['entity-group-chevron', { 'entity-group-chevron--open': peopleOpen }]">v</span>
+          <span class="entity-group-title flex items-center gap-2">
+            <Icon name="Users" :size="18" class="text-neutral-600" aria-hidden="true" />
+            <span>People ({{ people.length }})</span>
+          </span>
+          <span class="entity-group-chevron">
+            <Icon :name="peopleOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
+          </span>
         </button>
 
         <div v-if="peopleOpen" class="entity-context-list">
