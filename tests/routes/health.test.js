@@ -3,9 +3,10 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import Fastify from "fastify";
 
-const { mockQuery, mockCheckOllamaHealth } = vi.hoisted(() => ({
+const { mockQuery, mockCheckOllamaHealth, mockCheckVoiceAIHealth } = vi.hoisted(() => ({
   mockQuery: vi.fn(),
   mockCheckOllamaHealth: vi.fn(),
+  mockCheckVoiceAIHealth: vi.fn(),
 }));
 
 vi.mock("../../server/services/pool.js", () => ({
@@ -14,6 +15,10 @@ vi.mock("../../server/services/pool.js", () => ({
 vi.mock("../../server/services/ollamaClient.js", () => ({
   checkOllamaHealth: mockCheckOllamaHealth,
   getOllamaConfig: () => ({ host: "http://127.0.0.1:11434", model: "qwen3:8b" }),
+}));
+vi.mock("../../server/services/ttsService.js", () => ({
+  checkVoiceAIHealth: mockCheckVoiceAIHealth,
+  getVoiceAIConfig: () => ({ endpoint: "https://dev.voice.ai/api/v1/tts/speech", configured: true }),
 }));
 
 import healthRoutes from "../../server/routes/health.js";
@@ -38,6 +43,14 @@ describe("GET /health", () => {
       code: "OLLAMA_OK",
       message: "ok",
     });
+    mockCheckVoiceAIHealth.mockResolvedValueOnce({
+      configured: true,
+      reachable: true,
+      ready: true,
+      code: "VOICE_AI_OK",
+      message: "ok",
+      endpoint: "https://dev.voice.ai/api/v1/tts/speech",
+    });
 
     const res = await app.inject({ method: "GET", url: "/health" });
 
@@ -47,6 +60,9 @@ describe("GET /health", () => {
     expect(body.postgres).toBe(true);
     expect(body.ollama.reachable).toBe(true);
     expect(body.ollama.model_available).toBe(true);
+    expect(body.voice_ai.ready).toBe(true);
+    expect(body.features.explore.available).toBe(true);
+    expect(body.features.read_aloud.available).toBe(true);
   });
 
   it("returns 503 and degraded when Postgres is unreachable", async () => {
@@ -58,6 +74,14 @@ describe("GET /health", () => {
       code: "OLLAMA_OK",
       message: "ok",
     });
+    mockCheckVoiceAIHealth.mockResolvedValueOnce({
+      configured: true,
+      reachable: true,
+      ready: true,
+      code: "VOICE_AI_OK",
+      message: "ok",
+      endpoint: "https://dev.voice.ai/api/v1/tts/speech",
+    });
 
     const res = await app.inject({ method: "GET", url: "/health" });
 
@@ -68,7 +92,7 @@ describe("GET /health", () => {
     expect(body.ollama.reachable).toBe(true);
   });
 
-  it("returns 503 and degraded when Ollama model is missing", async () => {
+  it("returns 200 and degraded when Ollama model is missing", async () => {
     mockQuery.mockResolvedValueOnce({ rows: [{ "?column?": 1 }] });
     mockCheckOllamaHealth.mockResolvedValueOnce({
       reachable: true,
@@ -77,16 +101,53 @@ describe("GET /health", () => {
       code: "OLLAMA_MODEL_MISSING",
       message: "missing model",
     });
+    mockCheckVoiceAIHealth.mockResolvedValueOnce({
+      configured: true,
+      reachable: true,
+      ready: true,
+      code: "VOICE_AI_OK",
+      message: "ok",
+      endpoint: "https://dev.voice.ai/api/v1/tts/speech",
+    });
 
     const res = await app.inject({ method: "GET", url: "/health" });
 
-    expect(res.statusCode).toBe(503);
+    expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.status).toBe("degraded");
     expect(body.postgres).toBe(true);
     expect(body.ollama.reachable).toBe(true);
     expect(body.ollama.model_available).toBe(false);
     expect(body.ollama.code).toBe("OLLAMA_MODEL_MISSING");
+    expect(body.features.explore.available).toBe(false);
+    expect(body.features.read_aloud.available).toBe(true);
+  });
+
+  it("returns 200 and degraded when voice.ai is unavailable", async () => {
+    mockQuery.mockResolvedValueOnce({ rows: [{ "?column?": 1 }] });
+    mockCheckOllamaHealth.mockResolvedValueOnce({
+      reachable: true,
+      model_available: true,
+      model: "qwen3:8b",
+      code: "OLLAMA_OK",
+      message: "ok",
+    });
+    mockCheckVoiceAIHealth.mockResolvedValueOnce({
+      configured: false,
+      reachable: false,
+      ready: false,
+      code: "VOICE_AI_UNCONFIGURED",
+      message: "VOICE_AI_API_KEY is not configured.",
+      endpoint: "https://dev.voice.ai/api/v1/tts/speech",
+    });
+
+    const res = await app.inject({ method: "GET", url: "/health" });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.status).toBe("degraded");
+    expect(body.voice_ai.ready).toBe(false);
+    expect(body.features.read_aloud.available).toBe(false);
   });
 
   it("exposes the same payload on /api/health", async () => {
@@ -97,6 +158,14 @@ describe("GET /health", () => {
       model: "qwen3:8b",
       code: "OLLAMA_OK",
       message: "ok",
+    });
+    mockCheckVoiceAIHealth.mockResolvedValueOnce({
+      configured: true,
+      reachable: true,
+      ready: true,
+      code: "VOICE_AI_OK",
+      message: "ok",
+      endpoint: "https://dev.voice.ai/api/v1/tts/speech",
     });
 
     const res = await app.inject({ method: "GET", url: "/api/health" });

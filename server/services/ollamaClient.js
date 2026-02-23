@@ -110,6 +110,7 @@ export async function generateOllamaText({
         model,
         prompt: userPrompt,
         stream: false,
+        think: false,
         options: {
           temperature,
           num_predict: maxTokens,
@@ -153,16 +154,20 @@ export async function generateOllamaText({
   }
 
   const payload = await res.json().catch(() => null);
-  const text =
+  const raw =
     typeof payload?.response === "string"
       ? payload.response
       : typeof payload?.message?.content === "string"
         ? payload.message.content
         : "";
 
-  if (!text.trim()) {
+  // Strip qwen3 thinking blocks (<think>…</think>) that may appear even with think:false
+  // on older Ollama versions, or when model ignores the flag.
+  const text = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  if (!text) {
     throw new OllamaRequestError("Ollama returned an empty response.", 502, "OLLAMA_EMPTY_RESPONSE");
   }
 
-  return text.trim();
+  return text;
 }

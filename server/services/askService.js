@@ -352,13 +352,15 @@ export function buildAskPrompt({
   chapter,
   verse,
   anchorPassage = null,
+  relevantPassages = [],
+  foundEntities = [],
 } = {}) {
   const location = `${translation} ${book} ${chapter}:${verse}`;
   const anchorRef = String(anchorPassage?.ref || location).trim();
   const anchorText = String(anchorPassage?.snippet || "").trim();
   const anchorLine = anchorText ? `${anchorRef} - ${anchorText}` : `${anchorRef} - (text unavailable)`;
 
-  return [
+  const lines = [
     "You are a Bible study assistant.",
     "Answer the user's question as directly and helpfully as possible.",
     "The reader location is optional context, not a hard constraint.",
@@ -376,10 +378,32 @@ export function buildAskPrompt({
     "",
     "[READER_CONTEXT_VERSE]",
     anchorLine,
-    "",
-    "[QUESTION]",
-    question,
-  ].join("\n");
+  ];
+
+  // Include other retrieved passages (anchor is already shown above)
+  const anchorId = anchorPassage?.id ?? null;
+  const otherPassages = Array.isArray(relevantPassages)
+    ? relevantPassages.filter((p) => p.id !== anchorId)
+    : [];
+  if (otherPassages.length) {
+    lines.push("", "[RETRIEVED_PASSAGES]");
+    for (const p of otherPassages) {
+      const snippet = String(p.snippet || "").trim();
+      if (snippet) lines.push(`${p.ref} - ${snippet}`);
+    }
+  }
+
+  // Include top entity names so the model knows which people/places are relevant
+  const entityNames = Array.isArray(foundEntities)
+    ? foundEntities.slice(0, 5).map((e) => `${e.name} (${e.type})`).filter(Boolean)
+    : [];
+  if (entityNames.length) {
+    lines.push("", "[CONTEXT_ENTITIES]", entityNames.join(", "));
+  }
+
+  lines.push("", "[QUESTION]", question);
+
+  return lines.join("\n");
 }
 
 export async function askQuestion({
@@ -417,6 +441,8 @@ export async function askQuestion({
     chapter,
     verse,
     anchorPassage,
+    relevantPassages,
+    foundEntities,
   });
 
   const rawResponseText = await generateOllamaText({
