@@ -2,9 +2,16 @@
 import { computed, ref } from "vue";
 import { PT_BR_BOOK_NAMES } from "../../data/bookNamesPtBr.js";
 import MapCard from "../MapCard.vue";
+import {
+  formatEntitySubtypeLabel,
+  formatEntityTypeLabel,
+  getEntityTypeParts,
+  shouldShowEntitySubtypeTag,
+} from "../../utils/entityTypeLabels.js";
 
 const props = defineProps({
   thread: { type: Object, required: true },
+  chapterEntities: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["open-reference", "open-entity"]);
@@ -45,6 +52,82 @@ const UNKNOWN_BOOK_INDEX = Number.MAX_SAFE_INTEGER;
 const verseLinks = computed(() => {
   const source = Array.isArray(entity.value?.verses) ? entity.value.verses : [];
   return [...source].sort(compareVerseRefs);
+});
+
+const currentEntityTypeParts = computed(() => getEntityTypeParts(entity.value?.type));
+
+const similarChapterEntities = computed(() => {
+  const current = entity.value;
+  if (!current) return [];
+
+  const currentId = Number(current.id);
+  const currentNameKey = String(current.canonical_name || "").trim().toLowerCase();
+  const currentType = currentEntityTypeParts.value;
+  if (!currentType?.groupKey || currentType.groupKey === "other") return [];
+
+  const deduped = new Map();
+  for (const raw of Array.isArray(props.chapterEntities) ? props.chapterEntities : []) {
+    if (!raw || typeof raw !== "object") continue;
+
+    const candidateId = Number(raw.id);
+    const candidateName = String(raw.canonical_name || raw.name || "").trim();
+    if (!candidateName && !Number.isFinite(candidateId)) continue;
+    if (Number.isFinite(currentId) && Number.isFinite(candidateId) && candidateId === currentId) continue;
+    if (!Number.isFinite(currentId) && currentNameKey && candidateName.toLowerCase() === currentNameKey) continue;
+
+    const typeParts = getEntityTypeParts(raw.type);
+    if (typeParts.groupKey !== currentType.groupKey) continue;
+
+    const subtypeLabel = formatEntitySubtypeLabel(raw.type, "");
+    const verseList = normalizeVerseList(raw.chapter_verses);
+    const sameSubtype = Boolean(
+      currentType.subtypeKey &&
+      typeParts.subtypeKey &&
+      currentType.subtypeKey === typeParts.subtypeKey
+    );
+    const dedupeKey = Number.isFinite(candidateId)
+      ? `id:${candidateId}`
+      : `${candidateName.toLowerCase()}|${typeParts.subtypeKey || ""}`;
+
+    const existing = deduped.get(dedupeKey);
+    if (!existing) {
+      deduped.set(dedupeKey, {
+        ...raw,
+        id: Number.isFinite(candidateId) ? candidateId : null,
+        canonical_name: candidateName || "Unknown",
+        _sortName: (candidateName || "Unknown").toLowerCase(),
+        _sameSubtype: sameSubtype,
+        _occurrenceCount: verseList.length,
+        chapter_verses: verseList,
+        _subtypeLabel: subtypeLabel,
+        _subtypeKey: typeParts.subtypeKey,
+      });
+      continue;
+    }
+
+    existing.chapter_verses = normalizeVerseList([...(existing.chapter_verses || []), ...verseList]);
+    existing._occurrenceCount = existing.chapter_verses.length;
+    existing._sameSubtype = existing._sameSubtype || sameSubtype;
+    if (!existing._subtypeLabel && subtypeLabel) existing._subtypeLabel = subtypeLabel;
+    if (!existing._subtypeKey && typeParts.subtypeKey) existing._subtypeKey = typeParts.subtypeKey;
+    if (!existing.id && Number.isFinite(candidateId)) existing.id = candidateId;
+  }
+
+  return [...deduped.values()]
+    .sort((a, b) => {
+      if (a._sameSubtype !== b._sameSubtype) return a._sameSubtype ? -1 : 1;
+      const countDiff = (b._occurrenceCount || 0) - (a._occurrenceCount || 0);
+      if (countDiff) return countDiff;
+      return String(a._sortName || "").localeCompare(String(b._sortName || ""));
+    })
+    .slice(0, 8);
+});
+
+const similarEntitiesTitle = computed(() => {
+  const groupKey = currentEntityTypeParts.value?.groupKey;
+  if (groupKey === "places") return "Similar Places in This Chapter";
+  if (groupKey === "people") return "Similar People in This Chapter";
+  return "Related in This Chapter";
 });
 
 const mapLanguage = computed(() => {
@@ -114,8 +197,10 @@ function compareVerseRefs(a, b) {
 }
 
 function openEntity(relatedEntity) {
+  const entityId = Number(relatedEntity?.id);
+  if (!Number.isFinite(entityId)) return;
   emit("open-entity", {
-    entityId: relatedEntity.id,
+    entityId,
     name: relatedEntity.canonical_name,
     anchor: props.thread.anchor,
   });
@@ -133,6 +218,35 @@ function formatDate(iso) {
   return iso
     ? new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
     : "";
+}
+
+function normalizeVerseList(values) {
+  const unique = new Set();
+  for (const value of Array.isArray(values) ? values : []) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) unique.add(n);
+  }
+  return [...unique].sort((a, b) => a - b);
+}
+
+function formatVerseHint(chapterVerses) {
+  const verses = normalizeVerseList(chapterVerses);
+  if (!verses.length) return "";
+  const ranges = [];
+  let start = verses[0];
+  let prev = verses[0];
+  for (let i = 1; i < verses.length; i += 1) {
+    const current = verses[i];
+    if (current === prev + 1) {
+      prev = current;
+      continue;
+    }
+    ranges.push(start === prev ? String(start) : `${start}-${prev}`);
+    start = current;
+    prev = current;
+  }
+  ranges.push(start === prev ? String(start) : `${start}-${prev}`);
+  return `${verses.length === 1 ? "v." : "vv."} ${ranges.join(", ")}`;
 }
 </script>
 
@@ -180,7 +294,7 @@ function formatDate(iso) {
           </div>
           <div>
             <p class="entity-name">{{ entity.canonical_name }}</p>
-            <p class="entity-type">{{ entity.type || "unknown" }}</p>
+            <p class="entity-type">{{ formatEntityTypeLabel(entity.type, { includeGroup: true }) }}</p>
           </div>
         </div>
         <p class="result-text">{{ description }}</p>
@@ -222,6 +336,34 @@ function formatDate(iso) {
           >
             {{ related.canonical_name }}
           </button>
+        </div>
+      </section>
+
+      <section v-if="similarChapterEntities.length" class="stack-block">
+        <p class="section-label">{{ similarEntitiesTitle }}</p>
+        <div class="entity-context-list">
+          <article
+            v-for="similar in similarChapterEntities"
+            :key="similar.id ?? `${similar.canonical_name}-${similar._subtypeKey || ''}`"
+            class="entity-context-row"
+            @click="openEntity(similar)"
+          >
+            <div class="entity-context-body">
+              <p class="entity-name">
+                {{ similar.canonical_name }}
+                <span
+                  v-if="shouldShowEntitySubtypeTag(similar.canonical_name, similar.type)"
+                  class="entity-subtype"
+                  :title="similar._subtypeLabel || formatEntitySubtypeLabel(similar.type)"
+                >
+                  {{ similar._subtypeLabel || formatEntitySubtypeLabel(similar.type) }}
+                </span>
+              </p>
+              <p v-if="similar.chapter_verses?.length" class="verse-hint">
+                Appears in: {{ formatVerseHint(similar.chapter_verses) }}
+              </p>
+            </div>
+          </article>
         </div>
       </section>
 
