@@ -18,6 +18,7 @@ function readIntEnv(name, fallback, min) {
 const VOICE_AI_MAX_CONCURRENT = readIntEnv("VOICE_AI_MAX_CONCURRENT", 1, 1);
 const VOICE_AI_CONCURRENCY_RETRIES = readIntEnv("VOICE_AI_CONCURRENCY_RETRIES", 4, 0);
 const VOICE_AI_RETRY_BASE_MS = readIntEnv("VOICE_AI_RETRY_BASE_MS", 300, 50);
+const VOICE_AI_HEALTH_TIMEOUT_MS = readIntEnv("VOICE_AI_HEALTH_TIMEOUT_MS", 2500, 100);
 
 // Average TTS speaking rate: ~130 WPM ≈ 14 chars/sec.
 // Used to estimate total audio duration for word timing distribution.
@@ -44,6 +45,92 @@ function r2Key(translation, bookId, chapter, verse, voiceId) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function getVoiceAIConfig() {
+  return {
+    endpoint: VOICE_AI_ENDPOINT,
+    configured: Boolean(String(process.env.VOICE_AI_API_KEY || "").trim()),
+  };
+}
+
+export async function checkVoiceAIHealth({ timeoutMs = VOICE_AI_HEALTH_TIMEOUT_MS } = {}) {
+  const apiKey = String(process.env.VOICE_AI_API_KEY || "").trim();
+  if (!apiKey) {
+    return {
+      configured: false,
+      reachable: false,
+      ready: false,
+      code: "VOICE_AI_UNCONFIGURED",
+      message: "VOICE_AI_API_KEY is not configured.",
+      endpoint: VOICE_AI_ENDPOINT,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response;
+  try {
+    // Intentionally invalid payload to verify endpoint/auth reachability without generating audio.
+    response = await fetch(VOICE_AI_ENDPOINT, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+  } catch (err) {
+    clearTimeout(timeoutHandle);
+    if (err?.name === "AbortError") {
+      return {
+        configured: true,
+        reachable: false,
+        ready: false,
+        code: "VOICE_AI_TIMEOUT",
+        message: "Timed out contacting voice.ai.",
+        endpoint: VOICE_AI_ENDPOINT,
+      };
+    }
+    return {
+      configured: true,
+      reachable: false,
+      ready: false,
+      code: "VOICE_AI_UNREACHABLE",
+      message: "Could not reach voice.ai.",
+      endpoint: VOICE_AI_ENDPOINT,
+    };
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+
+  const statusCode = Number(response.status);
+  const unauthorized = statusCode === 401 || statusCode === 403;
+  const ready = !unauthorized;
+  const code =
+    unauthorized
+      ? "VOICE_AI_AUTH_ERROR"
+      : response.ok
+        ? "VOICE_AI_OK"
+        : "VOICE_AI_READY";
+  const message =
+    unauthorized
+      ? `voice.ai rejected credentials (${statusCode}).`
+      : response.ok
+        ? "voice.ai is reachable."
+        : `voice.ai is reachable (HTTP ${statusCode}).`;
+
+  return {
+    configured: true,
+    reachable: true,
+    ready,
+    code,
+    message,
+    endpoint: VOICE_AI_ENDPOINT,
+    http_status: statusCode,
+  };
 }
 
 async function withVoiceAISlot(task) {
@@ -154,19 +241,47 @@ export async function generateVerseAudio(translation, bookId, chapter, verse, vo
     throw err;
   }
 
-  const text = rows[0].text;
+  return generateVerseAudioFromRow(translation, bookId, chapter, rows[0], voiceId);
+}
+
+async function generateVerseAudioFromRow(translation, bookId, chapter, row, voiceId) {
+  const verse = Number(row.verse);
+  const text = row.text;
   const key  = r2Key(translation, bookId, chapter, verse, voiceId);
 
   const cached = await r2Exists(key);
   if (!cached) {
-    const language    = translationToLanguage(translation);
+    const language = translationToLanguage(translation);
     await ensureVerseAudioInCache(key, text, voiceId, language);
   }
 
   const audioUrl = await r2GetSignedUrl(key);
-  const words    = computeWordTimings(text);
+  const words = computeWordTimings(text);
 
-  return { audioUrl, words, cached };
+  return { verse, audioUrl, words, cached };
+}
+
+export async function generateChapterAudioManifest(
+  translation,
+  bookId,
+  chapter,
+  startVerse,
+  endVerse,
+  voiceId
+) {
+  const rows = await getVerseRange(translation, bookId, chapter, startVerse, endVerse);
+  if (!rows.length) {
+    const err = new Error(`Verse range not found: ${bookId} ${chapter}:${startVerse}-${endVerse} (${translation})`);
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const verses = [];
+  for (const row of rows) {
+    verses.push(await generateVerseAudioFromRow(translation, bookId, chapter, row, voiceId));
+  }
+
+  return { verses };
 }
 
 export function listVoices() {
