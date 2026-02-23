@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
+import { formatEntitySubtypeLabel, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -103,7 +104,13 @@ function openEntityRef(ref) {
             <div class="entity-context-body">
               <p class="entity-name">
                 {{ entity.name }}
-                <span class="entity-subtype">({{ entity.type || "unknown" }})</span>
+                <span
+                  v-if="shouldShowEntitySubtypeTag(entity.name, entity.type)"
+                  class="entity-subtype"
+                  :title="formatEntitySubtypeLabel(entity.type)"
+                >
+                  {{ formatEntitySubtypeLabel(entity.type) }}
+                </span>
               </p>
               <div v-if="entity.appears_in?.length" class="chip-row ask-entity-refs">
                 <button

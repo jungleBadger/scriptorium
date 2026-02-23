@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from "vue";
+import { formatEntityTypeLabel } from "../../utils/entityTypeLabels.js";
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -88,7 +89,7 @@ function getEntityInitials(name) {
         </div>
         <div class="entity-context-body">
           <p class="entity-name">{{ entity.canonical_name }}</p>
-          <p class="entity-type">{{ entity.type || "unknown" }}</p>
+          <p class="entity-type">{{ formatEntityTypeLabel(entity.type, { includeGroup: true }) }}</p>
         </div>
       </article>
     </div>

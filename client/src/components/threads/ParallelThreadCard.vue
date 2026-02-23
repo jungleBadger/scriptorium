@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import WhyThisToggle from "../WhyThisToggle.vue";
+import { formatEntitySubtypeLabel, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -34,14 +35,6 @@ function formatReference(result) {
     return result.ref_start || `${result.book_id} ${result.chapter}:${result.verse_start}`;
   }
   return `${result.ref_start} - ${result.ref_end}`;
-}
-
-function formatSubtype(type) {
-  const value = String(type || "").trim().toLowerCase();
-  if (!value) return "unknown";
-  const parts = value.split(".").filter(Boolean);
-  const subtype = parts.length > 1 ? parts[parts.length - 1] : parts[0];
-  return subtype.replace(/[_-]+/g, " ");
 }
 
 function openReference(result) {
@@ -113,7 +106,13 @@ function openEntity(entity) {
             <div class="entity-context-body">
               <p class="entity-name">
                 {{ entity.canonical_name }}
-                <span class="entity-subtype">({{ formatSubtype(entity.type) }})</span>
+                <span
+                  v-if="shouldShowEntitySubtypeTag(entity.canonical_name, entity.type)"
+                  class="entity-subtype"
+                  :title="formatEntitySubtypeLabel(entity.type)"
+                >
+                  {{ formatEntitySubtypeLabel(entity.type) }}
+                </span>
               </p>
             </div>
           </article>
@@ -138,7 +137,13 @@ function openEntity(entity) {
             <div class="entity-context-body">
               <p class="entity-name">
                 {{ entity.canonical_name }}
-                <span class="entity-subtype">({{ formatSubtype(entity.type) }})</span>
+                <span
+                  v-if="shouldShowEntitySubtypeTag(entity.canonical_name, entity.type)"
+                  class="entity-subtype"
+                  :title="formatEntitySubtypeLabel(entity.type)"
+                >
+                  {{ formatEntitySubtypeLabel(entity.type) }}
+                </span>
               </p>
             </div>
           </article>
