@@ -492,6 +492,14 @@ async function initializeReader() {
 async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) {
   tts.stop();
   const requestToken = ++chapterRequestToken;
+
+  // Optimistically update location so the sticky header reflects the destination
+  // immediately, before the fetch resolves. Saved for rollback on failure.
+  const prevBookId = bookId.value;
+  const prevChapter = chapter.value;
+  bookId.value = nextBookId;
+  chapter.value = nextChapter;
+
   readerLoading.value = true;
   readerError.value = null;
   selectedEntityId.value = null;
@@ -504,8 +512,6 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     const payload = await getChapter(nextBookId, nextChapter, translation.value);
     if (requestToken !== chapterRequestToken) return;
 
-    bookId.value = nextBookId;
-    chapter.value = nextChapter;
     chapterData.value = payload;
 
     const verses = payload.verses || [];
@@ -527,6 +533,9 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
 
   } catch (err) {
     if (requestToken !== chapterRequestToken) return;
+    // Revert the optimistic location update on failure.
+    bookId.value = prevBookId;
+    chapter.value = prevChapter;
     readerError.value = getApiErrorMessage(err, { context: "chapter" });
     chapterData.value = null;
     // Prevent a late context response from replacing the error state after a failed chapter load.

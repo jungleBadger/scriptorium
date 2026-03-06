@@ -572,18 +572,20 @@ onUnmounted(() => {
         <button class="ghost-btn compact" type="button" @click="$emit('clear-selection')">{{ t('reader.clear') }}</button>
       </div>
 
-      <div v-if="chapterTransitionLoading" class="reader-loading-overlay" aria-hidden="true">
-        <div class="reader-loading-overlay__inner">
-          <div class="reader-loading-overlay__label">{{ t('reader.loading') }}</div>
-          <div class="reader-loading-overlay__line reader-loading-overlay__line--1"></div>
-          <div class="reader-loading-overlay__line reader-loading-overlay__line--2"></div>
-          <div class="reader-loading-overlay__line reader-loading-overlay__line--3"></div>
+      <Transition name="loading-overlay">
+        <div v-if="chapterTransitionLoading" class="reader-loading-overlay" aria-hidden="true">
+          <div class="reader-loading-overlay__inner">
+            <div class="reader-loading-overlay__label">{{ t('reader.loading') }}</div>
+            <div class="reader-loading-overlay__line reader-loading-overlay__line--1"></div>
+            <div class="reader-loading-overlay__line reader-loading-overlay__line--2"></div>
+            <div class="reader-loading-overlay__line reader-loading-overlay__line--3"></div>
+          </div>
         </div>
-      </div>
+      </Transition>
 
       <div v-if="error" class="state-error">{{ error }}</div>
       <div v-else-if="!verses.length && loading" class="reader-skeleton">
-        <div v-for="line in 8" :key="line" class="skeleton-line"></div>
+        <div v-for="line in 16" :key="line" class="skeleton-line"></div>
       </div>
       <div v-else-if="!verses.length" class="state-text">{{ t('reader.noVerses') }}</div>
 

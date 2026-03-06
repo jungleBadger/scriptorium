@@ -785,7 +785,8 @@ body {
   flex: 0 0 auto;
 }
 
-.reader-content--chapter-loading::after {
+/* Scrim is always present so it can fade in/out via opacity transition. */
+.reader-content::after {
   content: "";
   position: absolute;
   left: 0;
@@ -794,14 +795,22 @@ body {
   bottom: 0;
   background: var(--reader-loading-scrim);
   z-index: 11;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.reader-content--chapter-loading::after {
+  opacity: 1;
   pointer-events: auto;
 }
 
-/* Keep layout stable but hide previous chapter content during chapter transition loading. */
+/* Keep layout stable during chapter transition; fade content back in on reveal. */
 .reader-content--chapter-loading .reader-secondary-actions,
 .reader-content--chapter-loading .verse-list,
 .reader-content--chapter-loading .chapter-footer-nav {
   visibility: hidden;
+  opacity: 0;
 }
 
 .reader-content--tts-active {
@@ -829,6 +838,18 @@ body {
   font-size: 0.82rem;
   font-weight: 700;
   padding: 0.33rem 0.56rem;
+}
+
+/* Vue <Transition name="loading-overlay"> */
+.loading-overlay-enter-active {
+  transition: opacity 160ms ease;
+}
+.loading-overlay-leave-active {
+  transition: opacity 120ms ease;
+}
+.loading-overlay-enter-from,
+.loading-overlay-leave-to {
+  opacity: 0;
 }
 
 .reader-loading-overlay {
@@ -887,6 +908,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-height: 60vh;
 }
 
 .skeleton-line {
@@ -912,6 +934,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  opacity: 1;
+  transition: opacity 220ms ease;
   max-width: 720px;
   width: 100%;
 }
@@ -1077,6 +1101,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-tight);
+  opacity: 1;
+  transition: opacity 220ms ease;
 }
 
 .chapter-footer-spacer {
@@ -1099,6 +1125,8 @@ body {
   padding: 0.35rem var(--space-standard) 0.15rem;
   display: flex;
   justify-content: flex-end;
+  opacity: 1;
+  transition: opacity 220ms ease;
 }
 
 .reader-listen-secondary {
