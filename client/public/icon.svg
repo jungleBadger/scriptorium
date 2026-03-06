@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#1e1612"/>
+  <!-- Left page -->
+  <path d="M80,152 C80,148 84,144 88,144 C152,144 210,156 252,184 L252,372 C210,344 152,332 88,332 C84,332 80,328 80,324 Z" fill="#fff9f2"/>
+  <!-- Right page -->
+  <path d="M260,184 C302,156 360,144 424,144 C428,144 432,148 432,152 L432,324 C432,328 428,332 424,332 C360,332 302,344 260,372 Z" fill="#ede5d8"/>
+  <!-- Spine -->
+  <rect x="246" y="140" width="20" height="236" rx="5" fill="#6b3020"/>
+  <!-- Text lines, left page -->
+  <rect x="108" y="210" width="118" height="8" rx="4" fill="#7a5845" opacity="0.7"/>
+  <rect x="108" y="236" width="118" height="8" rx="4" fill="#7a5845" opacity="0.7"/>
+  <rect x="108" y="262" width="118" height="8" rx="4" fill="#7a5845" opacity="0.7"/>
+  <rect x="108" y="288" width="80"  height="8" rx="4" fill="#7a5845" opacity="0.45"/>
+  <!-- Text lines, right page -->
+  <rect x="286" y="210" width="118" height="8" rx="4" fill="#7a5845" opacity="0.7"/>
+  <rect x="286" y="236" width="118" height="8" rx="4" fill="#7a5845" opacity="0.7"/>
+  <rect x="286" y="262" width="118" height="8" rx="4" fill="#7a5845" opacity="0.7"/>
+  <rect x="286" y="288" width="80"  height="8" rx="4" fill="#7a5845" opacity="0.45"/>
+</svg>
