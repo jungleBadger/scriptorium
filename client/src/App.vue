@@ -129,7 +129,7 @@ const books = ref([]);
 const bookId = ref("");
 const chapter = ref(1);
 const chapterData = ref(null);
-const readerLoading = ref(false);
+const readerLoading = ref(true);
 const readerError = ref(null);
 const activeVerse = ref(null);
 const selectedEntityId = ref(null);
@@ -149,8 +149,8 @@ const serviceCapabilities = reactive({
   },
 });
 
-const exploreEnabled = computed(() => serviceCapabilities.features.explore !== false);
-const ttsEnabled = computed(() => serviceCapabilities.features.readAloud !== false);
+const exploreEnabled = computed(() => serviceCapabilities.loaded && serviceCapabilities.features.explore !== false);
+const ttsEnabled = computed(() => serviceCapabilities.loaded && serviceCapabilities.features.readAloud !== false);
 
 const exploreUnavailableReason = computed(() => {
   if (exploreEnabled.value) return null;
