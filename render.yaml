@@ -13,13 +13,15 @@ services:
       - key: PGHOST
         sync: false
       - key: PGPORT
-        value: "5432"
+        sync: false
       - key: PGUSER
         sync: false
       - key: PGPASSWORD
         sync: false
       - key: PGDATABASE
         sync: false
+      - key: PGSSL
+        value: "true"
 
       # --- TTS / voice.ai (leave unset to disable feature) ---
       - key: VOICE_AI_API_KEY
