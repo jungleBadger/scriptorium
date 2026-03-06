@@ -25,18 +25,65 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="flex gap-2">
+  <form @submit.prevent="handleSubmit" class="search-bar">
     <input
       v-model="query"
       type="text"
       placeholder="Search the Bible..."
-      class="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      class="search-bar__input"
     />
     <button
       type="submit"
-      class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      class="search-bar__submit"
     >
       Search
     </button>
   </form>
 </template>
+
+<style scoped>
+.search-bar {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-bar__input {
+  flex: 1;
+  border-radius: 0.65rem;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  color: var(--ink);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.search-bar__input::placeholder {
+  color: var(--muted);
+}
+
+.search-bar__input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.search-bar__submit {
+  border-radius: 0.65rem;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--primary-text);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.search-bar__submit:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.search-bar__submit:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+</style>
