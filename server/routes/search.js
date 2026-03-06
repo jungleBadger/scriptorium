@@ -74,7 +74,7 @@ async function searchHandler(req, reply) {
     };
   } catch (err) {
     req.log.error(err);
-    reply.status(500).send({ error: "Search failed" });
+    reply.status(500).send({ error: "Search failed.", code: "SEARCH_ERROR", retryable: true });
   }
 }
 

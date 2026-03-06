@@ -14,9 +14,14 @@ const schema = {
 
 export default async function bookRoutes(app) {
   // GET /api/books?translation=WEBU
-  app.get("/api/books", { schema }, async (req) => {
+  app.get("/api/books", { schema }, async (req, reply) => {
     const { translation } = req.query;
-    const books = await getBooks(translation);
-    return { total: books.length, books };
+    try {
+      const books = await getBooks(translation);
+      return { total: books.length, books };
+    } catch (err) {
+      req.log.error(err, "Failed to load books");
+      reply.status(500).send({ error: "Could not load books.", code: "BOOKS_ERROR", retryable: true });
+    }
   });
 }

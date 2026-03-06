@@ -18,6 +18,11 @@ export function getPool() {
       max: 10,
       idleTimeoutMillis: 30_000,
     });
+    // Without this listener, an idle-client error (e.g. server-side disconnect)
+    // emits an uncaught EventEmitter error and crashes the Node process.
+    _pool.on("error", (err) => {
+      console.error("[pool] idle client error", err);
+    });
   }
   return _pool;
 }

@@ -57,15 +57,13 @@ export default async function entityRoutes(app) {
   // GET /api/entities?q=&type=&limit=20&offset=0
   app.get("/api/entities", { schema: searchSchema }, async (req, reply) => {
     const { q, type, limit, offset } = req.query;
-    const { total, results } = await searchEntities(q, { type, limit, offset });
-    return {
-      query: q,
-      total,
-      limit,
-      offset,
-      has_more: offset + results.length < total,
-      results,
-    };
+    try {
+      const { total, results } = await searchEntities(q, { type, limit, offset });
+      return { query: q, total, limit, offset, has_more: offset + results.length < total, results };
+    } catch (err) {
+      req.log.error(err, "Entity search failed");
+      reply.status(500).send({ error: "Entity search failed.", code: "ENTITY_SEARCH_ERROR", retryable: true });
+    }
   });
 
   // GET /api/entities/geo?type=&minLon=&maxLon=&minLat=&maxLat=&limit=&offset=
@@ -76,51 +74,48 @@ export default async function entityRoutes(app) {
     const hasAnyBounds = bounds.some((value) => value != null);
     const hasAllBounds = bounds.every((value) => value != null);
     if (hasAnyBounds && !hasAllBounds) {
-      reply.status(400).send({
-        error: "Bounding-box filter requires minLon, maxLon, minLat, and maxLat.",
-      });
+      reply.status(400).send({ error: "Bounding-box filter requires minLon, maxLon, minLat, and maxLat." });
       return;
     }
     if (hasAllBounds && (minLon > maxLon || minLat > maxLat)) {
-      reply.status(400).send({
-        error: "Bounding-box values must satisfy minLon <= maxLon and minLat <= maxLat.",
-      });
+      reply.status(400).send({ error: "Bounding-box values must satisfy minLon <= maxLon and minLat <= maxLat." });
       return;
     }
 
-    const { total, results } = await getGeoEntities({
-      type,
-      minLon,
-      maxLon,
-      minLat,
-      maxLat,
-      limit,
-      offset,
-    });
-    return {
-      total,
-      limit,
-      offset,
-      has_more: offset + results.length < total,
-      results,
-    };
+    try {
+      const { total, results } = await getGeoEntities({ type, minLon, maxLon, minLat, maxLat, limit, offset });
+      return { total, limit, offset, has_more: offset + results.length < total, results };
+    } catch (err) {
+      req.log.error(err, "Geo entity query failed");
+      reply.status(500).send({ error: "Could not load geo entities.", code: "GEO_ENTITY_ERROR", retryable: true });
+    }
   });
 
   // GET /api/entities/by-verse/:bookId/:chapter/:verse
   // Registered before :id to avoid route conflict
   app.get("/api/entities/by-verse/:bookId/:chapter/:verse", { schema: byVerseSchema }, async (req, reply) => {
     const { bookId, chapter, verse } = req.params;
-    const results = await getEntitiesByVerse(bookId, chapter, verse);
-    return { book_id: bookId, chapter, verse, total: results.length, results };
+    try {
+      const results = await getEntitiesByVerse(bookId, chapter, verse);
+      return { book_id: bookId, chapter, verse, total: results.length, results };
+    } catch (err) {
+      req.log.error(err, "Failed to load entities by verse");
+      reply.status(500).send({ error: "Could not load verse entities.", code: "VERSE_ENTITY_ERROR", retryable: true });
+    }
   });
 
   // GET /api/entities/:id
   app.get("/api/entities/:id", { schema: byIdSchema }, async (req, reply) => {
-    const entity = await getEntityById(req.params.id);
-    if (!entity) {
-      reply.status(404).send({ error: "Entity not found" });
-      return;
+    try {
+      const entity = await getEntityById(req.params.id);
+      if (!entity) {
+        reply.status(404).send({ error: "Entity not found", code: "ENTITY_NOT_FOUND", retryable: false });
+        return;
+      }
+      return entity;
+    } catch (err) {
+      req.log.error(err, "Failed to load entity by id");
+      reply.status(500).send({ error: "Could not load entity.", code: "ENTITY_ERROR", retryable: true });
     }
-    return entity;
   });
 }

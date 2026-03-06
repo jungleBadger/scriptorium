@@ -66,18 +66,17 @@ export default async function chapterRoutes(app) {
     const { bookId, chapter } = req.params;
     const { translation } = req.query;
 
-    const [explanation, entities] = await Promise.all([
-      getChapterExplanation(translation, bookId, chapter),
-      getChapterEntities(bookId, chapter),
-    ]);
+    try {
+      const [explanation, entities] = await Promise.all([
+        getChapterExplanation(translation, bookId, chapter),
+        getChapterEntities(bookId, chapter),
+      ]);
 
-    return {
-      book_id: bookId,
-      chapter,
-      translation,
-      explanation,
-      entities,
-    };
+      return { book_id: bookId, chapter, translation, explanation, entities };
+    } catch (err) {
+      req.log.error(err, "Failed to load chapter context");
+      reply.status(500).send({ error: "Could not load chapter context.", code: "CHAPTER_CONTEXT_ERROR", retryable: true });
+    }
   });
 
   // GET /api/chapters/:bookId/:chapter
@@ -85,26 +84,23 @@ export default async function chapterRoutes(app) {
     const { bookId, chapter } = req.params;
     const { translation } = req.query;
 
-    const [verses, maxChapter] = await Promise.all([
-      getChapter(translation, bookId, chapter),
-      getMaxChapter(translation, bookId),
-    ]);
+    try {
+      const [verses, maxChapter] = await Promise.all([
+        getChapter(translation, bookId, chapter),
+        getMaxChapter(translation, bookId),
+      ]);
 
-    if (!verses.length) {
-      reply.status(404).send({ error: "Chapter not found" });
-      return;
+      if (!verses.length) {
+        reply.status(404).send({ error: "Chapter not found", code: "CHAPTER_NOT_FOUND", retryable: false });
+        return;
+      }
+
+      const { prev, next } = computeNav(bookId, chapter, maxChapter);
+      return { book_id: bookId, chapter, translation, verses, prev, next };
+    } catch (err) {
+      req.log.error(err, "Failed to load chapter");
+      reply.status(500).send({ error: "Could not load chapter.", code: "CHAPTER_ERROR", retryable: true });
     }
-
-    const { prev, next } = computeNav(bookId, chapter, maxChapter);
-
-    return {
-      book_id: bookId,
-      chapter,
-      translation,
-      verses,
-      prev,
-      next,
-    };
   });
 
   // GET /api/verses/:bookId/:chapter/:startVerse/:endVerse
@@ -112,18 +108,18 @@ export default async function chapterRoutes(app) {
     const { bookId, chapter, startVerse, endVerse } = req.params;
     const { translation } = req.query;
 
-    const verses = await getVerseRange(translation, bookId, chapter, startVerse, endVerse);
+    try {
+      const verses = await getVerseRange(translation, bookId, chapter, startVerse, endVerse);
 
-    if (!verses.length) {
-      reply.status(404).send({ error: "Verses not found" });
-      return;
+      if (!verses.length) {
+        reply.status(404).send({ error: "Verses not found", code: "VERSES_NOT_FOUND", retryable: false });
+        return;
+      }
+
+      return { book_id: bookId, chapter, translation, verses };
+    } catch (err) {
+      req.log.error(err, "Failed to load verse range");
+      reply.status(500).send({ error: "Could not load verses.", code: "VERSES_ERROR", retryable: true });
     }
-
-    return {
-      book_id: bookId,
-      chapter,
-      translation,
-      verses,
-    };
   });
 }
