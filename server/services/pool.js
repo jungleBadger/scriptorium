@@ -14,6 +14,7 @@ export function getPool() {
       user: process.env.PGUSER || "bible",
       password: process.env.PGPASSWORD || "bible",
       database: process.env.PGDATABASE || "bible",
+      ssl: process.env.PGSSL === "true" ? { rejectUnauthorized: false } : false,
       max: 10,
       idleTimeoutMillis: 30_000,
     });
