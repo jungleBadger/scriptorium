@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: scriptorium
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm install --prefix client && npm run build:client
+    startCommand: node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # --- Database (Postgres / Supabase) ---
+      - key: PGHOST
+        sync: false
+      - key: PGPORT
+        value: "5432"
+      - key: PGUSER
+        sync: false
+      - key: PGPASSWORD
+        sync: false
+      - key: PGDATABASE
+        sync: false
+
+      # --- TTS / voice.ai (leave unset to disable feature) ---
+      - key: VOICE_AI_API_KEY
+        sync: false
+      - key: VOICE_AI_MODEL_ENGLISH
+        sync: false
+      - key: VOICE_AI_MODEL_MULTILINGUAL
+        sync: false
+
+      # --- R2 audio cache (leave unset to disable caching) ---
+      - key: R2_URL
+        sync: false
+      - key: R2_ACCESS_KEY
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_SIGNED_URL_TTL_SECONDS
+        sync: false
+
+      # --- Ollama / LLM (leave unset to disable feature) ---
+      - key: OLLAMA_HOST
+        sync: false
+      - key: OLLAMA_MODEL
+        sync: false
