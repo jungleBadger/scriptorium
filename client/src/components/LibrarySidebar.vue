@@ -1,7 +1,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { PT_BR_BOOK_NAMES } from '../data/bookNamesPtBr.js'
 import Icon from './ui/Icon.vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   books:          { type: Array,  default: () => [] },
@@ -130,11 +133,11 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
   <div class="library-sidebar">
     <!-- Header -->
     <header class="library-header">
-      <h2 class="library-title">Library</h2>
+      <h2 class="library-title">{{ t('library.title') }}</h2>
       <button
         class="nav-icon-btn group"
         type="button"
-        aria-label="Close Library"
+        :aria-label="t('library.close')"
         @click="emit('close')"
       >
         <Icon
@@ -152,15 +155,17 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
         <Icon
         name="Search"
         :size="18"
-        class="library-search-icon text-neutral-600"
+        :class="['library-search-icon text-neutral-600', { 'library-search-icon--disabled': !!pickerBook }]"
         aria-hidden="true"
       />
         <input
         v-model="searchQuery"
         type="search"
         class="library-search-input library-search-input--with-icon"
-        placeholder="Search books…"
-        aria-label="Search books"
+        :placeholder="t('library.searchPlaceholder')"
+        :aria-label="t('library.searchLabel')"
+        :disabled="!!pickerBook"
+        :title="pickerBook ? t('library.searchDisabled') : t('library.searchLabel')"
       />
       </div>
     </div>
@@ -170,21 +175,21 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
       <div class="library-picker-header">
         <button class="library-picker-back nav-icon-btn flex items-center gap-2" type="button" @click="closePicker">
           <Icon name="ChevronLeft" :size="16" class="text-neutral-600" aria-hidden="true" />
-          <span>Books</span>
+          <span>{{ t('library.books') }}</span>
         </button>
         <span class="library-picker-title">{{ pickerBook.displayName || pickerBook.name }}</span>
         <button
           class="library-pin-btn nav-icon-btn"
           type="button"
           :aria-pressed="isPinned(pickerBook.book_id)"
-          :title="isPinned(pickerBook.book_id) ? 'Unpin book' : 'Pin book'"
+          :title="isPinned(pickerBook.book_id) ? t('library.unpinBook') : t('library.pinBook')"
           @click="togglePin(pickerBook.book_id)"
         >
           {{ isPinned(pickerBook.book_id) ? '★' : '☆' }}
         </button>
       </div>
       <div class="library-scroll-region">
-        <div class="library-chapter-grid" role="list" :aria-label="`Chapters of ${pickerBook.displayName || pickerBook.name}`">
+        <div class="library-chapter-grid" role="list" :aria-label="t('library.chaptersOf', { name: pickerBook.displayName || pickerBook.name })">
           <button
             v-for="ch in chapterList"
             :key="ch"
@@ -194,7 +199,7 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
             }"
             type="button"
             role="listitem"
-            :aria-label="`Chapter ${ch}`"
+            :aria-label="t('library.chapter', { n: ch })"
             :aria-current="pickerBook.book_id === currentBookId && ch === currentChapter ? 'true' : undefined"
             @click="navigateTo(pickerBook.book_id, ch)"
           >
@@ -209,7 +214,7 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
       <div class="library-books">
       <!-- Pinned -->
       <div v-if="!searchQuery && pinnedBooks.length" class="library-section">
-        <p class="library-section-label">Pinned</p>
+        <p class="library-section-label">{{ t('library.pinned') }}</p>
         <ul class="library-book-list">
           <li v-for="book in pinnedBooks" :key="book.book_id">
             <button
@@ -227,13 +232,13 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
       <!-- Recent -->
       <div v-if="!searchQuery && recentBooks.length" class="library-section">
         <div class="library-section-head">
-          <p class="library-section-label">Recent</p>
+          <p class="library-section-label">{{ t('library.recent') }}</p>
           <button
             class="library-clear-recent-btn"
             type="button"
             @click="clearRecent"
           >
-            Clear
+            {{ t('library.clear') }}
           </button>
         </div>
         <ul class="library-book-list">
@@ -250,8 +255,8 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
               <button
                 class="library-recent-remove-btn"
                 type="button"
-                :aria-label="`Remove ${book.displayName || book.name} from recent`"
-                title="Remove from recent"
+                :aria-label="t('library.removeFromRecent', { name: book.displayName || book.name })"
+                :title="t('library.removeFromRecent', { name: book.displayName || book.name })"
                 @click.stop="removeRecent(book.book_id)"
               >
                 &times;
@@ -269,7 +274,7 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
           :aria-expanded="otOpen"
           @click="otOpen = !otOpen"
         >
-          <span>Old Testament</span>
+          <span>{{ t('library.oldTestament') }}</span>
           <Icon
             name="ChevronRight"
             :size="16"
@@ -300,7 +305,7 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
           :aria-expanded="ntOpen"
           @click="ntOpen = !ntOpen"
         >
-          <span>New Testament</span>
+          <span>{{ t('library.newTestament') }}</span>
           <Icon
             name="ChevronRight"
             :size="16"
@@ -324,7 +329,7 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
       </div>
 
         <div v-if="searchQuery && !otBooks.length && !ntBooks.length" class="state-text library-empty">
-          No books match "{{ searchQuery }}"
+          {{ t('library.noMatch', { query: searchQuery }) }}
         </div>
       </div>
     </div>

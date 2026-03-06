@@ -1,14 +1,16 @@
 <script setup>
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { PT_BR_BOOK_NAMES } from "../../data/bookNamesPtBr.js";
 import MapCard from "../MapCard.vue";
 import Icon from "../ui/Icon.vue";
 import {
-  formatEntitySubtypeLabel,
-  formatEntityTypeLabel,
+  formatEntitySubtypeKey,
   getEntityTypeParts,
   shouldShowEntitySubtypeTag,
 } from "../../utils/entityTypeLabels.js";
+
+const { t } = useI18n();
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -57,6 +59,17 @@ const verseLinks = computed(() => {
 
 const currentEntityTypeParts = computed(() => getEntityTypeParts(entity.value?.type));
 
+const entityTypeLabel = computed(() => {
+  const { groupKey, subtypeKey } = currentEntityTypeParts.value;
+  const subtypeLabel = subtypeKey ? t(`entities.subtypes.${subtypeKey}`) : "";
+  const groupLabel = (groupKey && groupKey !== "other") ? t(`entities.groups.${groupKey}`) : "";
+  if (!groupLabel) return subtypeLabel;
+  if (groupKey === "people" && subtypeKey === "person") return groupLabel;
+  if (groupKey === "places" && subtypeKey === "place") return groupLabel;
+  if (!subtypeLabel) return groupLabel;
+  return `${groupLabel} \u2022 ${subtypeLabel}`;
+});
+
 const similarChapterEntities = computed(() => {
   const current = entity.value;
   if (!current) return [];
@@ -79,7 +92,8 @@ const similarChapterEntities = computed(() => {
     const typeParts = getEntityTypeParts(raw.type);
     if (typeParts.groupKey !== currentType.groupKey) continue;
 
-    const subtypeLabel = formatEntitySubtypeLabel(raw.type, "");
+    const subtypeKey = typeParts.subtypeKey || "";
+    const subtypeLabel = subtypeKey ? t(`entities.subtypes.${subtypeKey}`) : "";
     const verseList = normalizeVerseList(raw.chapter_verses);
     const sameSubtype = Boolean(
       currentType.subtypeKey &&
@@ -88,7 +102,7 @@ const similarChapterEntities = computed(() => {
     );
     const dedupeKey = Number.isFinite(candidateId)
       ? `id:${candidateId}`
-      : `${candidateName.toLowerCase()}|${typeParts.subtypeKey || ""}`;
+      : `${candidateName.toLowerCase()}|${subtypeKey}`;
 
     const existing = deduped.get(dedupeKey);
     if (!existing) {
@@ -101,7 +115,7 @@ const similarChapterEntities = computed(() => {
         _occurrenceCount: verseList.length,
         chapter_verses: verseList,
         _subtypeLabel: subtypeLabel,
-        _subtypeKey: typeParts.subtypeKey,
+        _subtypeKey: subtypeKey,
       });
       continue;
     }
@@ -110,7 +124,7 @@ const similarChapterEntities = computed(() => {
     existing._occurrenceCount = existing.chapter_verses.length;
     existing._sameSubtype = existing._sameSubtype || sameSubtype;
     if (!existing._subtypeLabel && subtypeLabel) existing._subtypeLabel = subtypeLabel;
-    if (!existing._subtypeKey && typeParts.subtypeKey) existing._subtypeKey = typeParts.subtypeKey;
+    if (!existing._subtypeKey && subtypeKey) existing._subtypeKey = subtypeKey;
     if (!existing.id && Number.isFinite(candidateId)) existing.id = candidateId;
   }
 
@@ -126,9 +140,9 @@ const similarChapterEntities = computed(() => {
 
 const similarEntitiesTitle = computed(() => {
   const groupKey = currentEntityTypeParts.value?.groupKey;
-  if (groupKey === "places") return "Similar Places in This Chapter";
-  if (groupKey === "people") return "Similar People in This Chapter";
-  return "Related in This Chapter";
+  if (groupKey === "places") return t("threads.entityDetail.similarPlaces");
+  if (groupKey === "people") return t("threads.entityDetail.similarPeople");
+  return t("threads.entityDetail.relatedInChapter");
 });
 
 const mapLanguage = computed(() => {
@@ -138,9 +152,9 @@ const mapLanguage = computed(() => {
 const placeImageCredit = computed(() => String(entity.value?.thumbnail?.credit || "").trim());
 const placeImageSourceDescription = computed(() => {
   if (placeImageCredit.value) {
-    return `Image source: OpenBible Images. Credit: ${placeImageCredit.value}.`;
+    return t("threads.entityDetail.imageCredit", { credit: placeImageCredit.value });
   }
-  return "Image source: OpenBible Images.";
+  return t("threads.entityDetail.imageCreditNoCredit");
 });
 
 const failedImageUrls = ref({});
@@ -247,15 +261,16 @@ function formatVerseHint(chapterVerses) {
     prev = current;
   }
   ranges.push(start === prev ? String(start) : `${start}-${prev}`);
-  return `${verses.length === 1 ? "v." : "vv."} ${ranges.join(", ")}`;
+  const prefix = verses.length === 1 ? t("threads.entityDetail.verse") : t("threads.entityDetail.verses");
+  return `${prefix} ${ranges.join(", ")}`;
 }
 </script>
 
 <template>
   <div>
-    <p v-if="thread.status === 'loading'" class="state-text">Loading entity detail...</p>
+    <p v-if="thread.status === 'loading'" class="state-text">{{ t('threads.entityDetail.loading') }}</p>
     <p v-else-if="thread.status === 'error'" class="state-error">{{ thread.error }}</p>
-    <p v-else-if="!entity" class="state-text">Entity detail unavailable.</p>
+    <p v-else-if="!entity" class="state-text">{{ t('threads.entityDetail.unavailable') }}</p>
 
     <div v-else class="stack-list">
       <section class="stack-block">
@@ -272,9 +287,9 @@ function formatVerseHint(chapterVerses) {
           v-else-if="isLocationEntity && entity.thumbnail?.url"
           class="entity-hero-image entity-hero-image--fallback"
           role="img"
-          :aria-label="`Image unavailable for ${entity.canonical_name}`"
+          :aria-label="t('threads.entityDetail.imageUnavailable', { name: entity.canonical_name })"
         >
-          Image unavailable
+          {{ t('threads.entityDetail.imageUnavailableShort') }}
         </div>
 
         <div :class="['entity-detail-header', { 'entity-detail-header--hero': isLocationEntity && entity.thumbnail?.url }]">
@@ -289,13 +304,13 @@ function formatVerseHint(chapterVerses) {
             v-else-if="!isLocationEntity && entity.thumbnail?.url"
             class="entity-thumb entity-thumb-lg entity-thumb-placeholder entity-thumb--fallback"
             role="img"
-            :aria-label="`Image unavailable for ${entity.canonical_name}`"
+            :aria-label="t('threads.entityDetail.imageUnavailable', { name: entity.canonical_name })"
           >
             {{ getEntityInitials(entity.canonical_name) }}
           </div>
           <div>
             <p class="entity-name">{{ entity.canonical_name }}</p>
-            <p class="entity-type">{{ formatEntityTypeLabel(entity.type, { includeGroup: true }) }}</p>
+            <p class="entity-type">{{ entityTypeLabel }}</p>
           </div>
         </div>
         <p class="result-text">{{ description }}</p>
@@ -304,12 +319,12 @@ function formatVerseHint(chapterVerses) {
           class="ai-disclaimer"
           :title="enrichedDescriptionMetaTitle || null"
         >
-          Enriched with AI - may contain errors
+          {{ t('threads.entityDetail.aiEnriched') }}
         </p>
       </section>
 
       <section v-if="entity.lon != null && entity.lat != null" class="stack-block">
-        <p class="section-label">Location</p>
+        <p class="section-label">{{ t('threads.entityDetail.location') }}</p>
         <MapCard
           :lat="Number(entity.lat)"
           :lon="Number(entity.lon)"
@@ -319,14 +334,14 @@ function formatVerseHint(chapterVerses) {
       </section>
 
       <section v-if="entity.aliases?.length" class="stack-block">
-        <p class="section-label">Aliases</p>
+        <p class="section-label">{{ t('threads.entityDetail.aliases') }}</p>
         <div class="chip-row">
           <span v-for="alias in entity.aliases" :key="alias" class="chip">{{ alias }}</span>
         </div>
       </section>
 
       <section v-if="entity.related?.length" class="stack-block">
-        <p class="section-label">Related Entities</p>
+        <p class="section-label">{{ t('threads.entityDetail.relatedEntities') }}</p>
         <div class="chip-row">
           <button
             v-for="related in entity.related"
@@ -355,13 +370,13 @@ function formatVerseHint(chapterVerses) {
                 <span
                   v-if="shouldShowEntitySubtypeTag(similar.canonical_name, similar.type)"
                   class="entity-subtype"
-                  :title="similar._subtypeLabel || formatEntitySubtypeLabel(similar.type)"
+                  :title="similar._subtypeLabel || undefined"
                 >
-                  {{ similar._subtypeLabel || formatEntitySubtypeLabel(similar.type) }}
+                  {{ similar._subtypeLabel || '' }}
                 </span>
               </p>
               <p v-if="similar.chapter_verses?.length" class="verse-hint">
-                Appears in: {{ formatVerseHint(similar.chapter_verses) }}
+                {{ t('threads.entityDetail.appearsIn') }} {{ formatVerseHint(similar.chapter_verses) }}
               </p>
             </div>
           </article>
@@ -371,7 +386,7 @@ function formatVerseHint(chapterVerses) {
       <section v-if="verseLinks.length" class="stack-block">
         <p class="section-label flex items-center gap-2">
           <Icon name="Link" :size="18" class="text-neutral-600" aria-hidden="true" />
-          <span>Verse Links</span>
+          <span>{{ t('threads.entityDetail.verseLinks') }}</span>
         </p>
         <div class="chip-row">
           <button
@@ -387,7 +402,7 @@ function formatVerseHint(chapterVerses) {
       </section>
 
       <section v-if="crossReferences.length" class="stack-block">
-        <p class="section-label">Cross References</p>
+        <p class="section-label">{{ t('threads.entityDetail.crossReferences') }}</p>
         <ul class="note-list">
           <li v-for="reference in crossReferences" :key="reference">{{ reference }}</li>
         </ul>

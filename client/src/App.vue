@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   ask,
   getBooks,
@@ -23,6 +24,9 @@ import { useReaderState } from "./composables/useReaderState.js";
 import { PT_BR_BOOK_NAMES } from "./data/bookNamesPtBr.js";
 
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
+
+// ── i18n locale (follows active translation) ───────────────────────────────
+const { locale } = useI18n();
 
 // ── Breakpoints ────────────────────────────────────────────────────────────
 const { isMobile, isTablet, isDesktop } = useBreakpoint();
@@ -150,7 +154,7 @@ const ttsEnabled = computed(() => serviceCapabilities.features.readAloud !== fal
 
 const exploreUnavailableReason = computed(() => {
   if (exploreEnabled.value) return null;
-  return serviceCapabilities.statuses.ollama?.message || "Explore is temporarily unavailable.";
+  return "Explore is temporarily unavailable.";
 });
 
 const ttsUnavailableReason = computed(() => {
@@ -189,7 +193,7 @@ function applyTheme(theme) {
   const themes = {
     light: { '--ink':'#1e1612','--muted':'#695e57','--paper':'#fff9f2','--card':'#fffdf8','--line':'#e7d7c6','--accent':'#ad3f2b','--accent-soft':'#f6d8c6' },
     sepia: { '--ink':'#2c1f14','--muted':'#7a6250','--paper':'#f4ead8','--card':'#f9f2e2','--line':'#d9c9ae','--accent':'#8b3a20','--accent-soft':'#f0d8bf' },
-    dark:  { '--ink':'#e8ddd4','--muted':'#9e8e84','--paper':'#1a1614','--card':'#211e1b','--line':'#3a302a','--accent':'#d46e55','--accent-soft':'#3d241c' },
+    dark:  { '--ink':'#eee2d8','--muted':'#b7a79b','--paper':'#171311','--card':'#27221e','--line':'#4a3e36','--accent':'#d46e55','--accent-soft':'#4a2c23' },
   };
   Object.entries(themes[theme] ?? themes.light).forEach(([k, v]) => root.style.setProperty(k, v));
 }
@@ -323,6 +327,7 @@ const readerHasSelection = computed(() => readerUx.hasSelection.value);
 const readerSelectionLabel = computed(() => readerUx.selectionLabel.value);
 const showSelectionExploreStarter = computed(() => {
   if (!readerHasSelection.value) return false;
+  if (!exploreEnabled.value) return false;
   if (String(quickQuery.value || "").trim()) return false;
   const type = currentView.value?.type || null;
   return type == null || type === "chapterContext";
@@ -409,10 +414,14 @@ onMounted(async () => {
   if (saved) try { Object.assign(readerSettings, JSON.parse(saved)); } catch {}
   applySettingsCSSVars();
   await refreshFeatureAvailability();
-  // If no voice saved yet, auto-pick based on current translation.
-  if (!readerSettings.voiceId && ttsEnabled.value) {
+  // Normalize saved voice (or pick one) for the current translation.
+  if (ttsEnabled.value) {
     const voices = await fetchVoices();
-    readerSettings.voiceId = pickVoiceForLanguage(voices, translationLanguage(translation.value), "");
+    readerSettings.voiceId = pickVoiceForLanguage(
+      voices,
+      translationLanguage(translation.value),
+      readerSettings.voiceId
+    );
   }
   await initializeReader();
 });
@@ -421,6 +430,8 @@ watch(readerSettings, () => {
   localStorage.setItem('scriptorium-reader-settings', JSON.stringify({ ...readerSettings }));
   applySettingsCSSVars();
 }, { deep: true });
+
+watch(translation, (trans) => { locale.value = translationLanguage(trans); }, { immediate: true });
 
 watch(translation, async (next, prev) => {
   if (next === prev) return;
@@ -486,6 +497,8 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
   selectedEntityId.value = null;
   readerUx.setSelectionNone();
   readerUx.setUiState({ chromeHidden: false });
+  // Start Insights loading immediately so center/right panes transition together.
+  void loadChapterContextView(nextBookId, nextChapter);
 
   try {
     const payload = await getChapter(nextBookId, nextChapter, translation.value);
@@ -512,11 +525,12 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
       rememberPosition(nextBookId, nextChapter, nextActiveVerse);
     }
 
-    void loadChapterContextView(nextBookId, nextChapter);
   } catch (err) {
     if (requestToken !== chapterRequestToken) return;
     readerError.value = getApiErrorMessage(err, { context: "chapter" });
     chapterData.value = null;
+    // Prevent a late context response from replacing the error state after a failed chapter load.
+    chapterContextToken += 1;
   } finally {
     if (requestToken === chapterRequestToken) readerLoading.value = false;
   }

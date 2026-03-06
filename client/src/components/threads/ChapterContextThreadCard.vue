@@ -1,6 +1,10 @@
-﻿<script setup>
+<script setup>
 import { computed, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import Icon from "../ui/Icon.vue";
+import { shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
+
+const { t, te } = useI18n();
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -27,49 +31,29 @@ const chapterSummaryMetaTitle = computed(() => {
   return parts.join(" | ");
 });
 
-const GROUP_LABELS = {
-  people: "People",
-  places: "Places",
-  other: "Other Entities",
-};
-
 const GROUP_ORDER = {
   people: 10,
   places: 20,
   other: 100,
 };
 
-const SUBTYPE_LABELS = {
-  river: "River",
-  place: "Place",
-  mountain: "Mountain",
-  hill: "Hill",
-  region: "Region",
-  city: "City",
-  town: "Town",
-  village: "Village",
-  country: "Country",
-  nation: "Nation",
-  sea: "Sea",
-  lake: "Lake",
-  island: "Island",
-  desert: "Desert",
-  valley: "Valley",
-  wilderness: "Wilderness",
-  plain: "Plain",
-  province: "Province",
-  territory: "Territory",
-  kingdom: "Kingdom",
-  person: "Person",
-  people: "People",
-  king: "King",
-  queen: "Queen",
-  prophet: "Prophet",
-  priest: "Priest",
-  apostle: "Apostle",
-  disciple: "Disciple",
-  tribe: "Tribe",
-};
+function getGroupTitle(groupKey) {
+  if (groupKey === "people") return t("entities.groups.people");
+  if (groupKey === "places") return t("entities.groups.places");
+  if (groupKey === "other") return t("entities.groups.other");
+  const normalized = groupKey.replace(/[_-]+/g, " ");
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}s`;
+}
+
+function getSubtypeLabel(subtypeKey, groupKey) {
+  const key = String(subtypeKey || "").trim().toLowerCase();
+  if (!key) return groupKey === "people" ? t("entities.subtypes.person") : "";
+  const normalizedKey = key.replace(/[\s_-]+/g, "_");
+  const localeKey = `entities.subtypes.${normalizedKey}`;
+  if (te(localeKey)) return t(localeKey);
+  // Fall back to title-casing the raw key
+  return key.split(/[\s_-]+/g).filter(Boolean).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
 
 function normalizeEntitiesForInsights(source) {
   const deduped = new Map();
@@ -225,19 +209,12 @@ function getGroupKey(type) {
   }
 
   if (
-    /(place|location|geo|region|river|mountain|hill|city|town|village|sea|lake|island|desert|valley|country|province|territory|wilderness|plain|kingdom)/.test(value)
+    /(place|location|geo|region|river|mountain|hill|city|town|village|sea|lake|island|desert|valley|country|province|territory|wilderness|plain|kingdom|garden|spring|water)/.test(value)
   ) {
     return "places";
   }
 
   return getBaseType(type);
-}
-
-function getGroupTitle(groupKey) {
-  if (GROUP_LABELS[groupKey]) return GROUP_LABELS[groupKey];
-  if (groupKey === "other") return GROUP_LABELS.other;
-  const normalized = groupKey.replace(/[_-]+/g, " ");
-  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}s`;
 }
 
 function formatSubtype(type) {
@@ -266,17 +243,6 @@ function normalizeSubtypeKey(subtype, groupKey) {
   if (value === "place" || value === "places" || value === "location" || value === "geo") return "place";
   if (value === "people" || value === "human" || value === "character") return "person";
   return value;
-}
-
-function getSubtypeLabel(subtypeKey, groupKey) {
-  const key = String(subtypeKey || "").trim().toLowerCase();
-  if (!key) return groupKey === "people" ? "Person" : "";
-  if (SUBTYPE_LABELS[key]) return SUBTYPE_LABELS[key];
-  return key
-    .split(/[_-]+/g)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 function getEntityDedupeKey(entity, canonicalName, subtypeKey) {
@@ -321,39 +287,77 @@ function formatVerseHint(chapterVerses) {
     prev = current;
   }
   ranges.push(start === prev ? String(start) : `${start}-${prev}`);
-  const prefix = verses.length === 1 ? "v." : "vv.";
+  const prefix = verses.length === 1 ? t("threads.chapterContext.verse") : t("threads.chapterContext.verses");
   return `${prefix} ${ranges.join(", ")}`;
 }
 
 function shouldShowSubtypeTag(entity) {
-  const subtype = String(entity?.subtypeLabel || "").trim();
-  if (!subtype) return false;
-  const name = String(entity?.canonical_name || "").trim().toLowerCase();
-  const subtypeKey = String(entity?.subtypeKey || "").trim().toLowerCase();
-  if (entity?.groupKey === "people" && subtypeKey === "person") return false;
-  if (entity?.groupKey === "places" && subtypeKey === "place") return false;
-  if (!name) return true;
-  if (subtypeKey && (name === subtypeKey || name.endsWith(` (${subtypeKey})`))) return false;
-  if (name.includes(`(${subtype.toLowerCase()})`)) return false;
-  return true;
+  return shouldShowEntitySubtypeTag(entity?.canonical_name, entity?.type);
 }
 </script>
 
 <template>
   <div>
-    <p v-if="thread.status === 'loading'" class="state-text">Loading chapter context...</p>
+    <div
+      v-if="thread.status === 'loading'"
+      class="context-thread-skeleton"
+      role="status"
+      aria-live="polite"
+      :aria-label="t('threads.chapterContext.loading')"
+    >
+      <section class="entity-group context-thread-skeleton__group">
+        <div class="entity-group-toggle context-thread-skeleton__toggle" aria-hidden="true">
+          <span class="context-thread-skeleton__toggle-line"></span>
+          <span class="context-thread-skeleton__toggle-dot"></span>
+        </div>
+        <div class="stack-block context-thread-skeleton__body">
+          <div class="context-thread-skeleton__line context-thread-skeleton__line--1"></div>
+          <div class="context-thread-skeleton__line context-thread-skeleton__line--2"></div>
+          <div class="context-thread-skeleton__line context-thread-skeleton__line--3"></div>
+          <div class="context-thread-skeleton__line context-thread-skeleton__line--4"></div>
+        </div>
+      </section>
+
+      <section class="entity-group context-thread-skeleton__group">
+        <div class="entity-group-toggle context-thread-skeleton__toggle" aria-hidden="true">
+          <span class="context-thread-skeleton__toggle-line context-thread-skeleton__toggle-line--short"></span>
+          <span class="context-thread-skeleton__toggle-dot"></span>
+        </div>
+        <div class="entity-context-list context-thread-skeleton__list" aria-hidden="true">
+          <div class="entity-context-row context-thread-skeleton__row">
+            <div class="entity-context-body">
+              <div class="context-thread-skeleton__name"></div>
+              <div class="context-thread-skeleton__meta"></div>
+            </div>
+          </div>
+          <div class="entity-context-row context-thread-skeleton__row">
+            <div class="entity-context-body">
+              <div class="context-thread-skeleton__name context-thread-skeleton__name--short"></div>
+              <div class="context-thread-skeleton__meta context-thread-skeleton__meta--short"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="entity-group context-thread-skeleton__group">
+        <div class="entity-group-toggle context-thread-skeleton__toggle" aria-hidden="true">
+          <span class="context-thread-skeleton__toggle-line context-thread-skeleton__toggle-line--shorter"></span>
+          <span class="context-thread-skeleton__toggle-dot"></span>
+        </div>
+      </section>
+    </div>
     <p v-else-if="thread.status === 'error'" class="state-error">{{ thread.error }}</p>
     <div v-else-if="data" class="stack-list">
       <section v-if="isFirstChapter" class="stack-block">
-        <p class="section-label">Book introduction</p>
-        <p class="state-text">Book introduction is not available yet.</p>
+        <p class="section-label">{{ t('threads.chapterContext.bookIntro') }}</p>
+        <p class="state-text">{{ t('threads.chapterContext.bookIntroUnavailable') }}</p>
       </section>
 
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="toggleChapterSummary">
           <span class="entity-group-title flex items-center gap-2">
             <Icon name="FileText" :size="18" class="text-neutral-600" aria-hidden="true" />
-            <span>Chapter summary</span>
+            <span>{{ t('threads.chapterContext.chapterSummary') }}</span>
           </span>
           <span class="entity-group-chevron">
             <Icon :name="chapterSummaryOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
@@ -362,8 +366,8 @@ function shouldShowSubtypeTag(entity) {
 
         <div v-if="chapterSummaryOpen" class="stack-block">
           <p v-if="explanation?.text" class="result-text">{{ explanation.text }}</p>
-          <p v-else class="state-text">No summary generated for this chapter yet.</p>
-          <p class="ai-disclaimer" :title="chapterSummaryMetaTitle || null">Generated with AI - may contain errors</p>
+          <p v-else class="state-text">{{ t('threads.chapterContext.noSummary') }}</p>
+          <p class="ai-disclaimer" :title="chapterSummaryMetaTitle || null">{{ t('threads.chapterContext.aiGenerated') }}</p>
         </div>
       </section>
 
@@ -401,7 +405,7 @@ function shouldShowSubtypeTag(entity) {
                 </p>
 
                 <p v-if="entity.chapter_verses?.length" class="verse-hint">
-                  Appears in: {{ formatVerseHint(entity.chapter_verses) }}
+                  {{ t('threads.chapterContext.appearsIn') }} {{ formatVerseHint(entity.chapter_verses) }}
                 </p>
               </div>
             </article>
@@ -410,7 +414,6 @@ function shouldShowSubtypeTag(entity) {
       </div>
     </div>
 
-    <p v-else class="state-text">No context available for this chapter.</p>
+    <p v-else class="state-text">{{ t('threads.chapterContext.noContext') }}</p>
   </div>
 </template>
-

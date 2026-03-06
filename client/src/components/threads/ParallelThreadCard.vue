@@ -1,8 +1,11 @@
 <script setup>
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import WhyThisToggle from "../WhyThisToggle.vue";
 import Icon from "../ui/Icon.vue";
-import { formatEntitySubtypeLabel, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
+import { formatEntitySubtypeKey, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
+
+const { t } = useI18n();
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -57,16 +60,16 @@ function openEntity(entity) {
 
 <template>
   <div>
-    <p v-if="thread.status === 'loading'" class="state-text">Searching passages and entities...</p>
+    <p v-if="thread.status === 'loading'" class="state-text">{{ t('threads.parallel.searching') }}</p>
     <p v-else-if="thread.status === 'error'" class="state-error">{{ thread.error }}</p>
-    <p v-else-if="!hasAnyResults" class="state-text">No results found.</p>
+    <p v-else-if="!hasAnyResults" class="state-text">{{ t('threads.parallel.noResults') }}</p>
 
     <div v-else class="stack-list">
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="passagesOpen = !passagesOpen">
           <span class="entity-group-title flex items-center gap-2">
             <Icon name="Link" :size="18" class="text-neutral-600" aria-hidden="true" />
-            <span>Vector Passages ({{ passages.length }})</span>
+            <span>{{ t('threads.parallel.passages') }} ({{ passages.length }})</span>
           </span>
           <span class="entity-group-chevron">
             <Icon :name="passagesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
@@ -74,7 +77,7 @@ function openEntity(entity) {
         </button>
 
         <div v-if="passagesOpen" class="stack-list">
-          <p v-if="!passages.length" class="state-text">No vector passages found.</p>
+          <p v-if="!passages.length" class="state-text">{{ t('threads.parallel.noPassages') }}</p>
 
           <article v-for="result in passages" :key="result.chunk_id" class="result-card">
             <div class="result-header">
@@ -86,7 +89,7 @@ function openEntity(entity) {
 
             <div class="result-actions">
               <button class="primary-btn compact" type="button" @click="openReference(result)">
-                Open in reader
+                {{ t('threads.parallel.openInReader') }}
               </button>
               <WhyThisToggle :result="result" />
             </div>
@@ -98,7 +101,7 @@ function openEntity(entity) {
         <button class="entity-group-toggle" type="button" @click="placesOpen = !placesOpen">
           <span class="entity-group-title flex items-center gap-2">
             <Icon name="MapPin" :size="18" class="text-neutral-600" aria-hidden="true" />
-            <span>Places ({{ places.length }})</span>
+            <span>{{ t('threads.parallel.places') }} ({{ places.length }})</span>
           </span>
           <span class="entity-group-chevron">
             <Icon :name="placesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
@@ -106,7 +109,7 @@ function openEntity(entity) {
         </button>
 
         <div v-if="placesOpen" class="entity-context-list">
-          <p v-if="!places.length" class="state-text">No place matches.</p>
+          <p v-if="!places.length" class="state-text">{{ t('threads.parallel.noPlaces') }}</p>
 
           <article
             v-for="entity in places"
@@ -120,9 +123,9 @@ function openEntity(entity) {
                 <span
                   v-if="shouldShowEntitySubtypeTag(entity.canonical_name, entity.type)"
                   class="entity-subtype"
-                  :title="formatEntitySubtypeLabel(entity.type)"
+                  :title="formatEntitySubtypeKey(entity.type) ? t(formatEntitySubtypeKey(entity.type)) : undefined"
                 >
-                  {{ formatEntitySubtypeLabel(entity.type) }}
+                  {{ formatEntitySubtypeKey(entity.type) ? t(formatEntitySubtypeKey(entity.type)) : '' }}
                 </span>
               </p>
             </div>
@@ -134,7 +137,7 @@ function openEntity(entity) {
         <button class="entity-group-toggle" type="button" @click="peopleOpen = !peopleOpen">
           <span class="entity-group-title flex items-center gap-2">
             <Icon name="Users" :size="18" class="text-neutral-600" aria-hidden="true" />
-            <span>People ({{ people.length }})</span>
+            <span>{{ t('threads.parallel.people') }} ({{ people.length }})</span>
           </span>
           <span class="entity-group-chevron">
             <Icon :name="peopleOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
@@ -142,7 +145,7 @@ function openEntity(entity) {
         </button>
 
         <div v-if="peopleOpen" class="entity-context-list">
-          <p v-if="!people.length" class="state-text">No people matches.</p>
+          <p v-if="!people.length" class="state-text">{{ t('threads.parallel.noPeople') }}</p>
 
           <article
             v-for="entity in people"
@@ -156,9 +159,9 @@ function openEntity(entity) {
                 <span
                   v-if="shouldShowEntitySubtypeTag(entity.canonical_name, entity.type)"
                   class="entity-subtype"
-                  :title="formatEntitySubtypeLabel(entity.type)"
+                  :title="formatEntitySubtypeKey(entity.type) ? t(formatEntitySubtypeKey(entity.type)) : undefined"
                 >
-                  {{ formatEntitySubtypeLabel(entity.type) }}
+                  {{ formatEntitySubtypeKey(entity.type) ? t(formatEntitySubtypeKey(entity.type)) : '' }}
                 </span>
               </p>
             </div>

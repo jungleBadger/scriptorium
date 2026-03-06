@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useTts } from '../composables/useTts.js';
 import Icon from './ui/Icon.vue';
 
+const { t } = useI18n();
 const tts = useTts();
 
 const visible = computed(() => tts.state.loading || tts.state.playing || tts.state.paused);
@@ -21,10 +23,10 @@ const label = computed(() => {
 });
 
 const statusLabel = computed(() => {
-  if (tts.state.loading) return 'Loading';
-  if (tts.state.playing) return 'Playing';
-  if (tts.state.paused) return 'Paused';
-  return 'Idle';
+  if (tts.state.loading) return t('tts.miniPlayer.loading');
+  if (tts.state.playing) return t('tts.miniPlayer.playing');
+  if (tts.state.paused) return t('tts.miniPlayer.paused');
+  return t('tts.miniPlayer.idle');
 });
 
 const progressPct = computed(() => Math.max(0, Math.min(100, Math.round((tts.state.progress || 0) * 100))));
@@ -37,7 +39,7 @@ function onClose() {
 
 <template>
   <Transition name="mini-player">
-    <div v-if="visible" class="reader-mini-player" role="group" aria-label="Read aloud mini player">
+    <div v-if="visible" class="reader-mini-player" role="group" :aria-label="t('tts.miniPlayer.label')">
       <div class="mini-player-main">
         <div class="mini-player-meta">
           <span class="mini-player-icon" aria-hidden="true">
@@ -55,8 +57,8 @@ function onClose() {
             class="mini-player-btn group"
             type="button"
             :disabled="!tts.state.canPrev || tts.state.loading"
-            aria-label="Previous verse"
-            title="Previous verse"
+            :aria-label="t('tts.miniPlayer.prevVerse')"
+            :title="t('tts.miniPlayer.prevVerse')"
             @click="tts.prevVerse()"
           >
             <Icon name="SkipBack" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
@@ -65,8 +67,8 @@ function onClose() {
             class="mini-player-btn mini-player-btn--primary group"
             type="button"
             :disabled="tts.state.loading"
-            :aria-label="tts.state.playing ? 'Pause reading' : 'Resume reading'"
-            :title="tts.state.playing ? 'Pause reading' : 'Resume reading'"
+            :aria-label="tts.state.playing ? t('tts.miniPlayer.pause') : t('tts.miniPlayer.resume')"
+            :title="tts.state.playing ? t('tts.miniPlayer.pause') : t('tts.miniPlayer.resume')"
             @click="tts.togglePlayPause()"
           >
             <Icon
@@ -80,8 +82,8 @@ function onClose() {
             class="mini-player-btn group"
             type="button"
             :disabled="!tts.state.canNext || tts.state.loading"
-            aria-label="Next verse"
-            title="Next verse"
+            :aria-label="t('tts.miniPlayer.nextVerse')"
+            :title="t('tts.miniPlayer.nextVerse')"
             @click="tts.nextVerse()"
           >
             <Icon name="SkipForward" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
@@ -89,8 +91,8 @@ function onClose() {
           <button
             class="mini-player-speed group flex items-center gap-2"
             type="button"
-            aria-label="Change playback speed"
-            :title="`Playback speed ${speedLabel}`"
+            :aria-label="t('tts.miniPlayer.changeSpeed')"
+            :title="t('tts.miniPlayer.speedLabel', { speed: speedLabel })"
             @click="tts.cycleSpeed()"
           >
             <Icon name="Gauge" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />
@@ -99,8 +101,8 @@ function onClose() {
           <button
             class="mini-player-close group"
             type="button"
-            aria-label="Close read aloud player"
-            title="Stop and close"
+            :aria-label="t('tts.miniPlayer.close')"
+            :title="t('tts.miniPlayer.stopAndClose')"
             @click="onClose"
           >
             <Icon name="X" :size="16" class="text-neutral-600 group-hover:text-neutral-900" aria-hidden="true" />

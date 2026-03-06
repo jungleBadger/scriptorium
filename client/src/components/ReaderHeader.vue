@@ -1,5 +1,9 @@
 <script setup>
+import { useI18n } from "vue-i18n";
 import { useKeyboardNav } from "../composables/useKeyboardNav.js";
+import Icon from "./ui/Icon.vue";
+
+const { t } = useI18n();
 
 const props = defineProps({
   bookName: { type: String, default: "" },
@@ -27,10 +31,11 @@ const { chapterControlRef, onControlKeydown } = useKeyboardNav({
       class="chapterbar-nav"
       type="button"
       :disabled="!hasPrev"
-      aria-label="Previous chapter"
+      :aria-label="t('header.prevChapter')"
       @click="$emit('go-prev')"
     >
-      &lsaquo; Prev
+      <Icon name="ChevronLeft" :size="14" aria-hidden="true" />
+      <span>{{ t('header.prev') }}</span>
     </button>
 
     <div class="chapterbar-center">
@@ -41,7 +46,7 @@ const { chapterControlRef, onControlKeydown } = useKeyboardNav({
           ref="chapterControlRef"
           class="chapterbar-chapter-select"
           :value="chapter"
-          aria-label="Chapter"
+          :aria-label="t('header.chapterSelect')"
           @change="$emit('chapter-change', $event)"
           @keydown="onControlKeydown"
         >
@@ -54,10 +59,11 @@ const { chapterControlRef, onControlKeydown } = useKeyboardNav({
       class="chapterbar-nav chapterbar-nav--next"
       type="button"
       :disabled="!hasNext"
-      aria-label="Next chapter"
+      :aria-label="t('header.nextChapter')"
       @click="$emit('go-next')"
     >
-      Next &rsaquo;
+      <span>{{ t('header.next') }}</span>
+      <Icon name="ChevronRight" :size="14" aria-hidden="true" />
     </button>
   </div>
 </template>

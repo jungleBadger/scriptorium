@@ -1,7 +1,10 @@
 <script setup>
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import Icon from "../ui/Icon.vue";
-import { formatEntitySubtypeLabel, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
+import { formatEntitySubtypeKey, shouldShowEntitySubtypeTag } from "../../utils/entityTypeLabels.js";
+
+const { t } = useI18n();
 
 const props = defineProps({
   thread: { type: Object, required: true },
@@ -50,29 +53,29 @@ function openEntityRef(ref) {
 
 <template>
   <div>
-    <p v-if="thread.status === 'loading'" class="state-text">Exploring with local assistant...</p>
+    <p v-if="thread.status === 'loading'" class="state-text">{{ t('threads.ask.exploring') }}</p>
     <p v-else-if="thread.status === 'error'" class="state-error">{{ thread.error }}</p>
     <p v-else-if="!answerText && !relevantPassages.length && !foundEntities.length" class="state-text">
-      No response yet.
+      {{ t('threads.ask.noResponse') }}
     </p>
 
     <div v-else class="stack-list">
       <section class="stack-block ask-answer-block">
-        <p class="section-label">Answer</p>
+        <p class="section-label">{{ t('threads.ask.answer') }}</p>
         <p v-if="answerText" class="result-text ask-answer-text">{{ answerText }}</p>
-        <p v-else class="state-text">No answer text returned.</p>
+        <p v-else class="state-text">{{ t('threads.ask.noAnswer') }}</p>
       </section>
 
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="passagesOpen = !passagesOpen">
-          <span class="entity-group-title">Relevant Passages ({{ relevantPassages.length }})</span>
+          <span class="entity-group-title">{{ t('threads.ask.passages') }} ({{ relevantPassages.length }})</span>
           <span class="entity-group-chevron">
             <Icon :name="passagesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
           </span>
         </button>
 
         <div v-if="passagesOpen" class="stack-list">
-          <p v-if="!relevantPassages.length" class="state-text">No relevant passages found.</p>
+          <p v-if="!relevantPassages.length" class="state-text">{{ t('threads.ask.noPassages') }}</p>
 
           <article v-for="passage in relevantPassages" :key="passage.id" class="result-card">
             <div class="result-header">
@@ -82,7 +85,7 @@ function openEntityRef(ref) {
             <p class="result-text">{{ passage.snippet }}</p>
             <div class="result-actions">
               <button class="primary-btn compact" type="button" @click="openPassage(passage)">
-                Open in reader
+                {{ t('threads.ask.openInReader') }}
               </button>
             </div>
           </article>
@@ -91,14 +94,14 @@ function openEntityRef(ref) {
 
       <section class="entity-group">
         <button class="entity-group-toggle" type="button" @click="entitiesOpen = !entitiesOpen">
-          <span class="entity-group-title">Found Entities ({{ foundEntities.length }})</span>
+          <span class="entity-group-title">{{ t('threads.ask.entities') }} ({{ foundEntities.length }})</span>
           <span class="entity-group-chevron">
             <Icon :name="entitiesOpen ? 'ChevronUp' : 'ChevronDown'" :size="16" class="text-neutral-600" aria-hidden="true" />
           </span>
         </button>
 
         <div v-if="entitiesOpen" class="entity-context-list">
-          <p v-if="!foundEntities.length" class="state-text">No entity matches found.</p>
+          <p v-if="!foundEntities.length" class="state-text">{{ t('threads.ask.noEntities') }}</p>
 
           <article
             v-for="entity in foundEntities"
@@ -112,9 +115,9 @@ function openEntityRef(ref) {
                 <span
                   v-if="shouldShowEntitySubtypeTag(entity.name, entity.type)"
                   class="entity-subtype"
-                  :title="formatEntitySubtypeLabel(entity.type)"
+                  :title="formatEntitySubtypeKey(entity.type) ? t(formatEntitySubtypeKey(entity.type)) : undefined"
                 >
-                  {{ formatEntitySubtypeLabel(entity.type) }}
+                  {{ formatEntitySubtypeKey(entity.type) ? t(formatEntitySubtypeKey(entity.type)) : '' }}
                 </span>
               </p>
               <div v-if="entity.appears_in?.length" class="chip-row ask-entity-refs">

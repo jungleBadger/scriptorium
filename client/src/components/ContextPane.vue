@@ -1,11 +1,14 @@
 <script setup>
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import ChapterContextThreadCard from "./threads/ChapterContextThreadCard.vue";
 import EntityDetailThreadCard from "./threads/EntityDetailThreadCard.vue";
 import ParallelThreadCard from "./threads/ParallelThreadCard.vue";
 import AskThreadCard from "./threads/AskThreadCard.vue";
 import Icon from "./ui/Icon.vue";
-import { formatEntityTypeLabel } from "../utils/entityTypeLabels.js";
+import { getEntityTypeParts } from "../utils/entityTypeLabels.js";
+
+const { t } = useI18n();
 
 const props = defineProps({
   currentView: { type: Object, default: null },
@@ -33,12 +36,23 @@ const emit = defineEmits([
   "open-entity",
 ]);
 
-const selectionQuickChips = [
-  { key: "summary", label: "Summary" },
-  { key: "themes", label: "Themes" },
-  { key: "entities", label: "Entities" },
-  { key: "cross_refs", label: "Cross-refs" },
-];
+const selectionQuickChips = computed(() => [
+  { key: "summary", label: t("context.chips.summary") },
+  { key: "themes", label: t("context.chips.themes") },
+  { key: "entities", label: t("context.chips.entities") },
+  { key: "cross_refs", label: t("context.chips.crossRefs") },
+]);
+
+function formatEntityTypeLabelI18n(type) {
+  const { groupKey, subtypeKey } = getEntityTypeParts(type);
+  const subtypeLabel = subtypeKey ? t(`entities.subtypes.${subtypeKey}`) : "";
+  const groupLabel = (groupKey && groupKey !== "other") ? t(`entities.groups.${groupKey}`) : "";
+  if (!groupLabel) return subtypeLabel;
+  if (groupKey === "people" && subtypeKey === "person") return groupLabel;
+  if (groupKey === "places" && subtypeKey === "place") return groupLabel;
+  if (!subtypeLabel) return groupLabel;
+  return `${groupLabel} \u2022 ${subtypeLabel}`;
+}
 
 const headerTitle = computed(() => {
   if (props.currentView?.type === "chapterContext") {
@@ -56,17 +70,14 @@ const headerMetaParts = computed(() => {
   if (props.currentView?.type === "chapterContext") {
     const count = Number(props.verseCount);
     if (Number.isFinite(count) && count >= 0) {
-      parts.push(`${count} verse${count === 1 ? "" : "s"}`);
-    }
-    if (props.hasSelection && props.selectionLabel) {
-      parts.push(`Selection: ${props.selectionLabel}`);
+      parts.push(`${count} ${count === 1 ? t('context.verse') : t('context.verses')}`);
     }
     return parts;
   }
 
   if (props.currentView?.type === "entityDetail") {
     if (props.selectedEntityType) {
-      parts.push(formatEntityTypeLabel(props.selectedEntityType, { includeGroup: true }));
+      parts.push(formatEntityTypeLabelI18n(props.selectedEntityType));
     }
     const ref = props.currentView?.anchor?.reference;
     if (ref) parts.push(ref);
@@ -87,14 +98,14 @@ const headerMetaParts = computed(() => {
           v-if="canGoBack"
           class="nav-icon-btn flex items-center gap-2"
           type="button"
-          aria-label="Back"
+          :aria-label="t('context.back')"
           @click="emit('go-back')"
         >
           <Icon name="ArrowLeft" :size="20" class="text-neutral-600" aria-hidden="true" />
-          <span>Back</span>
+          <span>{{ t('context.back') }}</span>
         </button>
         <div class="context-header-info">
-          <span class="sr-only">Insights panel</span>
+          <span class="sr-only">{{ t('context.insightsPanel') }}</span>
           <h2 class="context-title">{{ headerTitle }}</h2>
           <p v-if="headerMetaParts.length" class="context-subtitle">
             <template v-for="(part, index) in headerMetaParts" :key="`${index}-${part}`">
@@ -108,8 +119,8 @@ const headerMetaParts = computed(() => {
         v-if="currentView"
         class="nav-icon-btn context-close-btn group"
         type="button"
-        aria-label="Close insights"
-        title="Close insights"
+        :aria-label="t('context.close')"
+        :title="t('context.close')"
         @click="emit('clear-context')"
       >
         <Icon
@@ -122,9 +133,9 @@ const headerMetaParts = computed(() => {
     </header>
 
     <div v-if="hasSelection" class="context-selection-row" role="status" aria-live="polite">
-      <span class="context-selection-label">{{ selectionLabel || "Selection active" }}</span>
+      <span class="context-selection-label">{{ selectionLabel || t('context.selectionActive') }}</span>
       <button class="inline-link-btn" type="button" @click="emit('clear-selection')">
-        Clear selection
+        {{ t('context.clearSelection') }}
       </button>
     </div>
 
@@ -133,12 +144,11 @@ const headerMetaParts = computed(() => {
         v-if="showSelectionExploreStarter && hasSelection"
         class="context-selection-starter"
         role="region"
-        aria-label="Explore selected verses"
+        :aria-label="t('context.exploreSelection')"
       >
-        <p class="section-label context-selection-starter__kicker">Explore Selection</p>
-        <p class="context-selection-starter__title">{{ selectionLabel || "Selected verses" }}</p>
+        <p class="section-label context-selection-starter__kicker">{{ t('context.exploreSelection') }}</p>
         <p class="context-selection-starter__hint">
-          Choose a quick prompt to generate insights for this verse selection.
+          {{ t('context.quickPromptHint') }}
         </p>
         <div class="chip-row">
           <button
@@ -154,7 +164,7 @@ const headerMetaParts = computed(() => {
       </div>
 
       <div v-if="!currentView" class="state-text context-empty-state">
-        {{ hasSelection ? "Use a quick prompt above or type a question to explore this selection." : "Open a chapter to begin exploring." }}
+        {{ hasSelection ? t('context.emptyWithSelection') : t('context.emptyNoChapter') }}
       </div>
 
       <div v-else class="context-view-body">

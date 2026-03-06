@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import GlobalTopBar from './GlobalTopBar.vue';
 import ReaderHeader from './ReaderHeader.vue';
 import ReaderMiniPlayer from './ReaderMiniPlayer.vue';
@@ -7,6 +8,8 @@ import VerseActionRow from './VerseActionRow.vue';
 import { useTts } from '../composables/useTts.js';
 import { useBreakpoint } from '../composables/useBreakpoint.js';
 import { useReaderState } from '../composables/useReaderState.js';
+
+const { t } = useI18n();
 
 const props = defineProps({
   bookId: { type: String, required: true },
@@ -155,9 +158,13 @@ const selectionRange = computed(() => {
 });
 
 const hasSelection = computed(() => props.selectionMode !== 'none' && !!selectionRange.value);
+const hasSingleSelection = computed(() => props.selectionMode === 'single' && !!selectionRange.value);
+const hasRangeSelection = computed(() => props.selectionMode === 'range' && !!selectionRange.value);
 const ttsVisible = computed(() => tts.state.loading || tts.state.playing || tts.state.paused);
 const ttsActionEnabled = computed(() => props.ttsEnabled || ttsVisible.value);
-const selectionListenLabel = computed(() => 'Listen from selection');
+const chapterTransitionLoading = computed(
+  () => props.loading && Array.isArray(props.verses) && props.verses.length > 0
+);
 
 function getHighlightedParts(text) {
   const content = String(text || '');
@@ -249,6 +256,17 @@ watch(
   () => props.verses,
   () => {
     if (props.activeVerse != null) scrollToActiveVerse('auto');
+  }
+);
+
+watch(
+  chapterTransitionLoading,
+  (loading) => {
+    if (!loading) return;
+    const container = readerContentRef.value;
+    if (!container) return;
+    container.scrollTo({ top: 0, behavior: 'auto' });
+    lastScrollTop = 0;
   }
 );
 
@@ -430,7 +448,7 @@ function isVerseInPlayRange(v) {
 
 function showVerseActionBar(verseNumber) {
   if (isMobile.value) return false;
-  if (hasSelection.value) return Number(props.activeVerse) === Number(verseNumber);
+  if (hasRangeSelection.value) return false;
   return Number(props.activeVerse) === Number(verseNumber);
 }
 
@@ -491,6 +509,7 @@ onUnmounted(() => {
       :translation="translation"
       :available-translations="availableTranslations"
       :quick-query="quickQuery"
+      :voice-id="voiceId"
       :is-exploring="isExploring"
       :explore-error="exploreError"
       :chrome-hidden="chromeHidden"
@@ -514,6 +533,7 @@ onUnmounted(() => {
       :class="{
         'reader-content--chrome-hidden': chromeHidden,
         'reader-content--tts-active': ttsVisible,
+        'reader-content--chapter-loading': chapterTransitionLoading,
       }"
       @scroll.passive="onReaderScroll"
     >
@@ -529,55 +549,62 @@ onUnmounted(() => {
         @chapter-change="$emit('chapter-change', $event)"
       />
 
-      <div v-if="hasSelection" class="reader-selection-strip" role="status" aria-live="polite">
-        <span class="reader-selection-strip__label">{{ selectionLabel || 'Selection active' }}</span>
+      <div v-if="hasRangeSelection && !isMobile" class="reader-selection-strip" role="status" aria-live="polite">
+        <span class="reader-selection-strip__label">{{ selectionLabel || t('reader.selectionActive') }}</span>
         <button
+          v-if="exploreEnabled"
           class="ghost-btn compact reader-selection-strip__explore"
           type="button"
-          :disabled="!exploreEnabled"
-          :title="!exploreEnabled ? (exploreDisabledReason || 'Explore unavailable') : 'Explore selected verse(s)'"
+          :title="t('reader.exploreSelection')"
           @click="$emit('explore-selection', { verse: activeVerse })"
         >
-          Explore
+          {{ t('nav.explore') }}
         </button>
         <button
+          v-if="ttsActionEnabled"
           class="ghost-btn compact"
           type="button"
-          :disabled="!ttsActionEnabled"
-          :title="!ttsEnabled ? (ttsDisabledReason || 'Read aloud unavailable') : 'Listen from selection'"
+          :title="!ttsEnabled ? (ttsDisabledReason || t('verseActions.readAloudUnavailable')) : t('reader.listenFromSelection')"
           @click="handlePlaySelection"
         >
-          {{ selectionListenLabel }}
+          {{ t('reader.listenFromSelection') }}
         </button>
-        <button class="ghost-btn compact" type="button" @click="$emit('clear-selection')">Clear</button>
+        <button class="ghost-btn compact" type="button" @click="$emit('clear-selection')">{{ t('reader.clear') }}</button>
       </div>
 
-      <div v-if="loading && verses.length" class="reader-loading-banner">Loading chapter...</div>
+      <div v-if="chapterTransitionLoading" class="reader-loading-overlay" aria-hidden="true">
+        <div class="reader-loading-overlay__inner">
+          <div class="reader-loading-overlay__label">{{ t('reader.loading') }}</div>
+          <div class="reader-loading-overlay__line reader-loading-overlay__line--1"></div>
+          <div class="reader-loading-overlay__line reader-loading-overlay__line--2"></div>
+          <div class="reader-loading-overlay__line reader-loading-overlay__line--3"></div>
+        </div>
+      </div>
 
       <div v-if="error" class="state-error">{{ error }}</div>
       <div v-else-if="!verses.length && loading" class="reader-skeleton">
         <div v-for="line in 8" :key="line" class="skeleton-line"></div>
       </div>
-      <div v-else-if="!verses.length" class="state-text">No verses found for this chapter.</div>
+      <div v-else-if="!verses.length" class="state-text">{{ t('reader.noVerses') }}</div>
 
       <div
-        v-if="!error && verses.length && !loading && !hasSelection && ttsEnabled"
+        v-if="!error && verses.length && !hasSelection && ttsEnabled"
         class="reader-secondary-actions"
         role="toolbar"
-        aria-label="Reader actions"
+        :aria-label="t('nav.explore')"
       >
         <button
           class="reader-listen-secondary"
           type="button"
-          title="Listen to this chapter from verse 1"
+          :title="t('reader.listenChapterTitle')"
           @click="handlePlayChapter"
         >
-          <span class="reader-listen-secondary__label">Listen chapter</span>
-          <span class="reader-listen-secondary__meta">from verse 1</span>
+          <span class="reader-listen-secondary__label">{{ t('reader.listenChapter') }}</span>
+          <span class="reader-listen-secondary__meta">{{ t('reader.listenChapterFrom') }}</span>
         </button>
       </div>
 
-      <ol v-if="!error && verses.length && !loading" class="verse-list reader-text" role="list">
+      <ol v-if="!error && verses.length" class="verse-list reader-text" role="list">
         <li
           v-for="verse in verses"
           :key="verse.verse"
@@ -633,9 +660,10 @@ onUnmounted(() => {
             :is-bookmarked="isBookmarked(verse.verse)"
             :is-speaking="tts.state.playing && tts.state.activeVerseNumber === verse.verse"
             :is-speak-loading="tts.state.loading && tts.state.activeVerseNumber === verse.verse"
+            :explore-enabled="exploreEnabled"
             :tts-enabled="ttsEnabled"
             :tts-disabled-reason="ttsDisabledReason"
-            :show-clear="hasSelection"
+            :show-clear="hasSingleSelection"
             @explore="handleVerseExplore(verse.verse)"
             @toggle-bookmark="toggleBookmark(verse.verse)"
             @speak="handleSpeak(verse.verse)"
@@ -646,11 +674,11 @@ onUnmounted(() => {
 
       <div v-if="verses.length && (hasPrev || hasNext)" class="chapter-footer-nav">
         <button v-if="hasPrev" class="ghost-btn chapter-footer-prev" type="button" @click="$emit('go-prev')">
-          Previous chapter
+          {{ t('reader.prevChapter') }}
         </button>
         <span v-else class="chapter-footer-spacer" aria-hidden="true"></span>
         <button class="primary-btn chapter-footer-next" type="button" :disabled="!hasNext" @click="$emit('go-next')">
-          Next chapter
+          {{ t('reader.nextChapter') }}
         </button>
       </div>
 
@@ -658,31 +686,31 @@ onUnmounted(() => {
         {{ tts.state.error }}
       </div>
 
-      <div v-if="hasSelection && isMobile" class="reader-selection-toolbar" role="toolbar" aria-label="Selection actions">
+      <div v-if="hasSelection && isMobile" class="reader-selection-toolbar" role="toolbar" :aria-label="t('reader.selectionActive')">
         <button
+          v-if="exploreEnabled"
           class="primary-btn compact"
           type="button"
-          :disabled="!exploreEnabled"
-          :title="!exploreEnabled ? (exploreDisabledReason || 'Explore unavailable') : 'Explore selected verse(s)'"
+          :title="t('reader.exploreSelection')"
           @click="$emit('explore-selection', { verse: activeVerse })"
         >
-          Explore
+          {{ t('nav.explore') }}
         </button>
         <button
+          v-if="ttsActionEnabled"
           class="ghost-btn compact"
           type="button"
-          :disabled="!ttsActionEnabled"
-          :title="!ttsEnabled ? (ttsDisabledReason || 'Read aloud unavailable') : 'Listen from selection'"
+          :title="!ttsEnabled ? (ttsDisabledReason || t('verseActions.readAloudUnavailable')) : t('reader.listenFromSelection')"
           @click="handlePlaySelection"
         >
-          Listen from selection
+          {{ t('reader.listenFromSelection') }}
         </button>
-        <button class="ghost-btn compact" type="button" @click="copySelection">Copy</button>
-        <button class="ghost-btn compact" type="button" @click="$emit('clear-selection')">Clear</button>
+        <button class="ghost-btn compact" type="button" @click="copySelection">{{ t('reader.copy') }}</button>
+        <button class="ghost-btn compact" type="button" @click="$emit('clear-selection')">{{ t('reader.clear') }}</button>
       </div>
 
       <p v-if="showMobileExtendHint && hasSelection && isMobile" class="reader-selection-hint" role="status" aria-live="polite">
-        Tap another verse to extend range.
+        {{ t('reader.tapToExtend') }}
       </p>
 
       <ReaderMiniPlayer />

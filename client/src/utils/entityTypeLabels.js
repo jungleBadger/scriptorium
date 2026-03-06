@@ -21,6 +21,10 @@ const SUBTYPE_LABELS = {
   wilderness: "Wilderness",
   plain: "Plain",
   kingdom: "Kingdom",
+  garden: "Garden",
+  spring: "Spring",
+  water: "Body of Water",
+  "body of water": "Body of Water",
   person: "Person",
   people: "Person",
   human: "Person",
@@ -51,7 +55,7 @@ export function getEntityTypeParts(type) {
   let groupKey = "other";
   if (/(person|people|human|tribe|clan|family|ethnic|nation|group|character|prophet|king|queen|priest|apostle|disciple)/.test(value)) {
     groupKey = "people";
-  } else if (/(place|location|geo|region|river|mountain|hill|city|town|village|sea|lake|island|desert|valley|country|province|territory|wilderness|plain|kingdom)/.test(value)) {
+  } else if (/(place|location|geo|region|river|mountain|hill|city|town|village|sea|lake|island|desert|valley|country|province|territory|wilderness|plain|kingdom|garden|spring|water)/.test(value)) {
     groupKey = "places";
   } else if (base === "people") {
     groupKey = "people";
@@ -73,7 +77,7 @@ export function formatEntitySubtypeLabel(type, fallback = "Unknown") {
   if (key && SUBTYPE_LABELS[key]) return SUBTYPE_LABELS[key];
   if (key) {
     return key
-      .split(/[_-]+/g)
+      .split(/[\s_-]+/g)
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
@@ -102,6 +106,19 @@ export function formatEntityTypeLabel(type, { includeGroup = false, fallback = "
   if (normalizedSubtype === "person" && normalizedGroup === "people") return groupLabel;
   if (normalizedSubtype === "place" && normalizedGroup === "places") return groupLabel;
   return `${groupLabel} • ${subtypeLabel}`;
+}
+
+function toLocaleSubtypeKey(key) {
+  return key.replace(/[\s_-]+/g, "_");
+}
+
+export function formatEntitySubtypeKey(type) {
+  const { subtypeKey, groupKey } = getEntityTypeParts(type);
+  const key = String(subtypeKey || "").trim().toLowerCase();
+  if (key && SUBTYPE_LABELS[key]) return `entities.subtypes.${toLocaleSubtypeKey(key)}`;
+  if (groupKey === "people") return "entities.subtypes.person";
+  if (groupKey === "places") return "entities.subtypes.place";
+  return "";
 }
 
 export function shouldShowEntitySubtypeTag(name, type) {
