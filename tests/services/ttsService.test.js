@@ -15,9 +15,9 @@ vi.mock("../../server/services/r2.js", () => ({
 // Stub the VOICES data so tests are independent of the real config file.
 vi.mock("../../server/data/voices.js", () => ({
   VOICES: [
-    { id: "",             label: "Default",    language: "en" },
-    { id: "voice-en-1",  label: "EN Voice 1", language: "en" },
-    { id: "voice-pt-1",  label: "PT Voice 1", language: "pt" },
+    { id: "",            label: "Auto",       language: "en", locale: "en-US", isAuto: true },
+    { id: "voice-en-1",  label: "EN Voice 1", language: "en", locale: "en-US", isDefault: true },
+    { id: "voice-pt-1",  label: "PT Voice 1", language: "pt", locale: "pt-BR", isDefault: true },
   ],
 }));
 
@@ -125,13 +125,13 @@ describe("generateVerseAudio — cache miss", () => {
     expect(JSON.parse(body).voice_id).toBe("voice-en-1");
   });
 
-  it("omits voice_id from voice.ai request when empty", async () => {
+  it("auto-picks the default en-US voice when voiceId is empty", async () => {
     vi.stubGlobal("fetch", mockFetch());
 
     await generateVerseAudio("WEBU", "GEN", 1, 1, "");
 
     const [, { body }] = fetch.mock.calls[0];
-    expect(JSON.parse(body)).not.toHaveProperty("voice_id");
+    expect(JSON.parse(body).voice_id).toBe("voice-en-1");
   });
 
   it("sends language pt for PT1911 translation", async () => {
@@ -140,7 +140,10 @@ describe("generateVerseAudio — cache miss", () => {
     await generateVerseAudio("PT1911", "GEN", 1, 1, "");
 
     const [, { body }] = fetch.mock.calls[0];
-    expect(JSON.parse(body).language).toBe("pt");
+    const parsed = JSON.parse(body);
+    expect(parsed.language).toBe("pt");
+    expect(parsed.model).toBe("voiceai-tts-multilingual-v1-latest");
+    expect(parsed.voice_id).toBe("voice-pt-1");
   });
 
   it("sends language en for WEBU translation", async () => {
@@ -149,7 +152,21 @@ describe("generateVerseAudio — cache miss", () => {
     await generateVerseAudio("WEBU", "GEN", 1, 1, "");
 
     const [, { body }] = fetch.mock.calls[0];
-    expect(JSON.parse(body).language).toBe("en");
+    const parsed = JSON.parse(body);
+    expect(parsed.language).toBe("en");
+    expect(parsed.model).toBe("voiceai-tts-v1-latest");
+    expect(parsed.voice_id).toBe("voice-en-1");
+  });
+
+  it("falls back to a matching pt voice when a known en voice is passed for PT1911", async () => {
+    vi.stubGlobal("fetch", mockFetch());
+
+    await generateVerseAudio("PT1911", "GEN", 1, 1, "voice-en-1");
+
+    const [, { body }] = fetch.mock.calls[0];
+    const parsed = JSON.parse(body);
+    expect(parsed.language).toBe("pt");
+    expect(parsed.voice_id).toBe("voice-pt-1");
   });
 
   it("encodes voiceId with special chars safely in the R2 key", async () => {

@@ -4,12 +4,10 @@ import { describe, it, expect } from "vitest";
 import { translationLanguage, pickVoiceForLanguage } from "../../client/src/composables/useVoices.js";
 
 const VOICES = [
-  { id: "",            label: "Default",    language: "en" },
-  { id: "voice-en-1", label: "EN Voice 1", language: "en" },
-  { id: "voice-pt-1", label: "PT Voice 1", language: "pt" },
+  { id: "", label: "Auto", language: "en", locale: "en-US", isAuto: true },
+  { id: "voice-en-1", label: "EN Voice 1", language: "en", locale: "en-US", isDefault: true },
+  { id: "voice-pt-1", label: "PT Voice 1", language: "pt", locale: "pt-BR", isDefault: true },
 ];
-
-// ── translationLanguage ──────────────────────────────────────────────────────
 
 describe("translationLanguage", () => {
   it("maps PT1911 to pt", () => {
@@ -40,21 +38,18 @@ describe("translationLanguage", () => {
   });
 });
 
-// ── pickVoiceForLanguage ─────────────────────────────────────────────────────
-
 describe("pickVoiceForLanguage", () => {
   it("keeps the current voice when it already matches the target language", () => {
     expect(pickVoiceForLanguage(VOICES, "en", "voice-en-1")).toBe("voice-en-1");
   });
 
   it("switches to the first matching voice when language does not match", () => {
-    // current is EN, new language is PT → should pick first PT voice
     expect(pickVoiceForLanguage(VOICES, "pt", "voice-en-1")).toBe("voice-pt-1");
   });
 
-  it("picks the first matching voice when no current voice is set", () => {
+  it("picks the dedicated locale voice when no current voice is set", () => {
     expect(pickVoiceForLanguage(VOICES, "pt", "")).toBe("voice-pt-1");
-    expect(pickVoiceForLanguage(VOICES, "en", "")).toBe("");   // "" is the first EN voice
+    expect(pickVoiceForLanguage(VOICES, "en", "")).toBe("voice-en-1");
   });
 
   it("returns empty string when no voice matches the target language", () => {
@@ -66,9 +61,8 @@ describe("pickVoiceForLanguage", () => {
     expect(pickVoiceForLanguage([], "en", "")).toBe("");
   });
 
-  it("treats the default '' voice id as a valid match", () => {
-    // Default voice is "en" — switching from PT to EN should land on ""
+  it("treats the default '' voice id as auto and prefers a dedicated locale voice", () => {
     const result = pickVoiceForLanguage(VOICES, "en", "voice-pt-1");
-    expect(result).toBe(""); // first EN voice is id ""
+    expect(result).toBe("voice-en-1");
   });
 });

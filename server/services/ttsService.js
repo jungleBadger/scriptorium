@@ -6,6 +6,11 @@ import { r2Exists, r2Upload, r2GetSignedUrl } from "./r2.js";
 import { VOICES } from "../data/voices.js";
 
 const VOICE_AI_ENDPOINT = "https://dev.voice.ai/api/v1/tts/speech";
+const VOICE_AI_MODEL_ENGLISH =
+  String(process.env.VOICE_AI_MODEL_ENGLISH || "").trim() || "voiceai-tts-v1-latest";
+const VOICE_AI_MODEL_MULTILINGUAL =
+  String(process.env.VOICE_AI_MODEL_MULTILINGUAL || "").trim() ||
+  "voiceai-tts-multilingual-v1-latest";
 
 function readIntEnv(name, fallback, min) {
   const raw = process.env[name];
@@ -28,14 +33,97 @@ let activeVoiceAICalls = 0;
 const voiceAISlotQueue = [];
 const inFlightGenerations = new Map();
 
-// Map translation codes to voice.ai language codes.
-const TRANSLATION_LANGUAGE = {
-  PT1911: "pt",
-  ARC:    "pt",
+// Map translation codes to TTS language/locale defaults.
+const TRANSLATION_TTS_PROFILE = {
+  PT1911: { language: "pt", locale: "pt-BR" },
+  ARC:    { language: "pt", locale: "pt-BR" },
 };
 
+function normalizeLang(value) {
+  return String(value || "").trim().toLowerCase().split("-")[0];
+}
+
+function modelForLanguage(language) {
+  return normalizeLang(language) === "en" ? VOICE_AI_MODEL_ENGLISH : VOICE_AI_MODEL_MULTILINGUAL;
+}
+
+function translationToTtsProfile(translation) {
+  const mapped = TRANSLATION_TTS_PROFILE[String(translation).toUpperCase()];
+  const base = mapped ?? { language: "en", locale: "en-US" };
+  return {
+    language: base.language,
+    locale: base.locale,
+    model: modelForLanguage(base.language),
+  };
+}
+
 function translationToLanguage(translation) {
-  return TRANSLATION_LANGUAGE[String(translation).toUpperCase()] ?? "en";
+  return translationToTtsProfile(translation).language;
+}
+
+function findConfiguredVoice(voiceId) {
+  const id = String(voiceId || "").trim();
+  if (!id) return null;
+  return VOICES.find((voice) => String(voice?.id || "") === id) ?? null;
+}
+
+function voiceSupportsLanguage(voice, language) {
+  if (!voice) return false;
+  return normalizeLang(voice.language) === normalizeLang(language);
+}
+
+function pickDefaultVoiceForProfile(profile) {
+  const targetLanguage = normalizeLang(profile?.language);
+  const targetLocale = String(profile?.locale || "").trim().toLowerCase();
+  const configured = Array.isArray(VOICES) ? VOICES : [];
+  const nonAuto = configured.filter((voice) => !voice?.isAuto);
+
+  const byLocaleAndDefault = nonAuto.find(
+    (voice) =>
+      normalizeLang(voice?.language) === targetLanguage &&
+      String(voice?.locale || "").trim().toLowerCase() === targetLocale &&
+      voice?.isDefault === true
+  );
+  if (byLocaleAndDefault?.id) return byLocaleAndDefault.id;
+
+  const byLocale = nonAuto.find(
+    (voice) =>
+      normalizeLang(voice?.language) === targetLanguage &&
+      String(voice?.locale || "").trim().toLowerCase() === targetLocale &&
+      String(voice?.id || "").trim()
+  );
+  if (byLocale?.id) return byLocale.id;
+
+  const byLanguageDefault = nonAuto.find(
+    (voice) =>
+      normalizeLang(voice?.language) === targetLanguage &&
+      voice?.isDefault === true &&
+      String(voice?.id || "").trim()
+  );
+  if (byLanguageDefault?.id) return byLanguageDefault.id;
+
+  const byLanguage = nonAuto.find(
+    (voice) =>
+      normalizeLang(voice?.language) === targetLanguage &&
+      String(voice?.id || "").trim()
+  );
+  if (byLanguage?.id) return byLanguage.id;
+
+  return "";
+}
+
+function resolveVoiceIdForProfile(requestedVoiceId, profile) {
+  const requested = String(requestedVoiceId || "").trim();
+  if (!requested) return pickDefaultVoiceForProfile(profile);
+
+  const configuredVoice = findConfiguredVoice(requested);
+  if (!configuredVoice) return requested;
+
+  if (voiceSupportsLanguage(configuredVoice, profile?.language)) {
+    return requested;
+  }
+
+  return pickDefaultVoiceForProfile(profile);
 }
 
 function r2Key(translation, bookId, chapter, verse, voiceId) {
@@ -190,9 +278,9 @@ function computeWordTimings(text) {
   return words;
 }
 
-async function callVoiceAI(text, voiceId, language) {
+async function callVoiceAI(text, voiceId, language, model = modelForLanguage(language)) {
   return withVoiceAISlot(async () => {
-    const body = { text, model: "voiceai-tts-v1-latest", language };
+    const body = { text, model, language };
     if (voiceId) body.voice_id = voiceId;
 
     for (let attempt = 0; ; attempt++) {
@@ -222,7 +310,7 @@ async function callVoiceAI(text, voiceId, language) {
   });
 }
 
-async function ensureVerseAudioInCache(key, text, voiceId, language) {
+async function ensureVerseAudioInCache(key, text, voiceId, language, model) {
   const existing = inFlightGenerations.get(key);
   if (existing) {
     await existing;
@@ -231,7 +319,7 @@ async function ensureVerseAudioInCache(key, text, voiceId, language) {
 
   const generationPromise = (async () => {
     if (await r2Exists(key)) return;
-    const audioBuffer = await callVoiceAI(text, voiceId, language);
+    const audioBuffer = await callVoiceAI(text, voiceId, language, model);
     await r2Upload(key, audioBuffer);
   })();
 
@@ -257,12 +345,14 @@ export async function generateVerseAudio(translation, bookId, chapter, verse, vo
 async function generateVerseAudioFromRow(translation, bookId, chapter, row, voiceId) {
   const verse = Number(row.verse);
   const text = row.text;
-  const key  = r2Key(translation, bookId, chapter, verse, voiceId);
+  const profile = translationToTtsProfile(translation);
+  const effectiveVoiceId = resolveVoiceIdForProfile(voiceId, profile);
+  const key  = r2Key(translation, bookId, chapter, verse, effectiveVoiceId);
 
   const cached = await r2Exists(key);
   if (!cached) {
-    const language = translationToLanguage(translation);
-    await ensureVerseAudioInCache(key, text, voiceId, language);
+    const language = profile.language || translationToLanguage(translation);
+    await ensureVerseAudioInCache(key, text, effectiveVoiceId, language, profile.model);
   }
 
   const audioUrl = await r2GetSignedUrl(key);
