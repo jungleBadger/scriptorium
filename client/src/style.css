@@ -260,6 +260,7 @@
   --library-chapter-btn-active-bg: var(--accent);
   --library-chapter-btn-active-border: var(--accent);
   --library-chapter-btn-active-text: #fff;
+  --muted: #a09080;
 }
 
 * {
