@@ -25,7 +25,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="search-bar">
+  <form class="search-bar" @submit.prevent="handleSubmit">
     <input
       v-model="query"
       type="text"

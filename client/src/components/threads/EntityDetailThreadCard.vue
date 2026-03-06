@@ -280,8 +280,8 @@ function formatVerseHint(chapterVerses) {
           :alt="entity.canonical_name"
           :title="placeImageSourceDescription"
           :aria-description="placeImageSourceDescription"
-          @error="onImageError(entity.thumbnail.url)"
           class="entity-hero-image"
+          @error="onImageError(entity.thumbnail.url)"
         />
         <div
           v-else-if="isLocationEntity && entity.thumbnail?.url"
@@ -297,8 +297,8 @@ function formatVerseHint(chapterVerses) {
             v-if="hasEntityThumbImage"
             :src="entity.thumbnail.url"
             :alt="entity.canonical_name"
-            @error="onImageError(entity.thumbnail.url)"
             class="entity-thumb entity-thumb-lg"
+            @error="onImageError(entity.thumbnail.url)"
           />
           <div
             v-else-if="!isLocationEntity && entity.thumbnail?.url"

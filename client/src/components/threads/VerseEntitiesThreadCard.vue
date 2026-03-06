@@ -76,8 +76,8 @@ function getEntityInitials(name) {
           :alt="entity.canonical_name"
           :title="isPlaceEntity(entity) ? getPlaceImageDescription(entity) : null"
           :aria-description="isPlaceEntity(entity) ? getPlaceImageDescription(entity) : null"
-          @error="onImageError(entity.thumbnail.url)"
           class="entity-thumb"
+          @error="onImageError(entity.thumbnail.url)"
         />
         <div
           v-else-if="entity.thumbnail?.url"

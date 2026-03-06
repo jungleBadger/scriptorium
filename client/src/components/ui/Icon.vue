@@ -78,8 +78,8 @@ watchEffect(() => {
 
 <template>
   <component
-    v-if="icon"
     :is="icon"
+    v-if="icon"
     :size="size"
     class="inline-block stroke-[1.75]"
     v-bind="attrs"

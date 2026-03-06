@@ -42,11 +42,11 @@ function openEntity(entity) {
   });
 }
 
-function openEntityRef(ref) {
+function openEntityRef(entityRef) {
   emit("open-reference", {
-    book_id: ref.book_id,
-    chapter: ref.chapter,
-    verse: ref.verse,
+    book_id: entityRef.book_id,
+    chapter: entityRef.chapter,
+    verse: entityRef.verse,
   });
 }
 </script>
@@ -122,13 +122,13 @@ function openEntityRef(ref) {
               </p>
               <div v-if="entity.appears_in?.length" class="chip-row ask-entity-refs">
                 <button
-                  v-for="ref in entity.appears_in.slice(0, 5)"
-                  :key="ref.ref"
+                  v-for="entityRef in entity.appears_in.slice(0, 5)"
+                  :key="entityRef.ref"
                   type="button"
                   class="chip chip-button"
-                  @click.stop="openEntityRef(ref)"
+                  @click.stop="openEntityRef(entityRef)"
                 >
-                  {{ ref.ref }}
+                  {{ entityRef.ref }}
                 </button>
               </div>
             </div>

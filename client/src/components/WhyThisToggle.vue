@@ -20,7 +20,7 @@ const open = ref(false);
       <p><strong>Evidence:</strong> {{ result.evidence_score?.toFixed(4) }}</p>
 
       <div v-if="result.evidence?.keyword_hits?.length" class="chip-row">
-        <span class="chip" v-for="hit in result.evidence.keyword_hits" :key="hit">{{ hit }}</span>
+        <span v-for="hit in result.evidence.keyword_hits" :key="hit" class="chip">{{ hit }}</span>
       </div>
 
       <ul v-if="result.evidence?.notes?.length" class="note-list">
