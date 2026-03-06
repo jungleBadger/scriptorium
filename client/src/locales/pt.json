@@ -1,0 +1,239 @@
+{
+  "nav": {
+    "library": "Biblioteca",
+    "insights": "Insights",
+    "toggleLibrary": "Alternar painel da Biblioteca",
+    "toggleInsights": "Alternar painel de Insights",
+    "explore": "Explorar",
+    "exploring": "Explorando...",
+    "explorePlaceholder": "Pergunte sobre esta passagem...",
+    "exploreTitle": "Explorar insights da passagem",
+    "settings": "Configura\u00e7\u00f5es do leitor"
+  },
+  "reader": {
+    "loading": "Carregando cap\u00edtulo...",
+    "noVerses": "Nenhum vers\u00edculo encontrado para este cap\u00edtulo.",
+    "selectionActive": "Sele\u00e7\u00e3o ativa",
+    "exploreSelection": "Explorar vers\u00edculo(s) selecionado(s)",
+    "listenFromSelection": "Ouvir a partir da sele\u00e7\u00e3o",
+    "listenChapter": "Ouvir cap\u00edtulo",
+    "listenChapterFrom": "a partir do vers\u00edculo 1",
+    "listenChapterTitle": "Ouvir este cap\u00edtulo a partir do vers\u00edculo 1",
+    "tapToExtend": "Toque em outro vers\u00edculo para estender a sele\u00e7\u00e3o.",
+    "clear": "Limpar",
+    "copy": "Copiar",
+    "prevChapter": "Cap\u00edtulo anterior",
+    "nextChapter": "Pr\u00f3ximo cap\u00edtulo"
+  },
+  "header": {
+    "prev": "Ant.",
+    "next": "Pr\u00f3x.",
+    "prevChapter": "Cap\u00edtulo anterior",
+    "nextChapter": "Pr\u00f3ximo cap\u00edtulo",
+    "chapterSelect": "Cap\u00edtulo"
+  },
+  "settings": {
+    "title": "Configura\u00e7\u00f5es do Leitor",
+    "close": "Fechar configura\u00e7\u00f5es",
+    "translation": "Tradu\u00e7\u00e3o",
+    "voice": "Voz para leitura",
+    "voiceSelect": "Selecionar voz para leitura",
+    "textSize": "Tamanho do texto",
+    "lineSpacing": "Espa\u00e7amento de linha",
+    "font": "Fonte",
+    "theme": "Tema",
+    "sizes": {
+      "sm": "P",
+      "md": "M",
+      "lg": "G",
+      "xl": "GG"
+    },
+    "spacing": {
+      "normal": "Normal",
+      "relaxed": "Relaxado",
+      "loose": "Amplo"
+    },
+    "fonts": {
+      "serif": "Serifa",
+      "sans": "Sem Serifa"
+    },
+    "themes": {
+      "light": "Claro",
+      "sepia": "S\u00e9pia",
+      "dark": "Escuro"
+    }
+  },
+  "library": {
+    "title": "Biblioteca",
+    "close": "Fechar Biblioteca",
+    "searchPlaceholder": "Buscar livros\u2026",
+    "searchLabel": "Buscar livros",
+    "searchDisabled": "A busca est\u00e1 desabilitada ao selecionar um cap\u00edtulo",
+    "books": "Livros",
+    "pinBook": "Fixar livro",
+    "unpinBook": "Desafixar livro",
+    "chaptersOf": "Cap\u00edtulos de {name}",
+    "chapter": "Cap\u00edtulo {n}",
+    "pinned": "Fixados",
+    "recent": "Recentes",
+    "clear": "Limpar",
+    "removeFromRecent": "Remover {name} dos recentes",
+    "oldTestament": "Antigo Testamento",
+    "newTestament": "Novo Testamento",
+    "noMatch": "Nenhum livro encontrado para \"{query}\""
+  },
+  "context": {
+    "back": "Voltar",
+    "insightsPanel": "Painel de insights",
+    "close": "Fechar insights",
+    "selectionActive": "Sele\u00e7\u00e3o ativa",
+    "clearSelection": "Limpar sele\u00e7\u00e3o",
+    "exploreSelection": "Explorar Sele\u00e7\u00e3o",
+    "quickPromptHint": "Escolha um prompt r\u00e1pido para gerar insights para esta sele\u00e7\u00e3o de vers\u00edculos.",
+    "emptyWithSelection": "Use um prompt r\u00e1pido acima ou fa\u00e7a uma pergunta para explorar esta sele\u00e7\u00e3o.",
+    "emptyNoChapter": "Abra um cap\u00edtulo para come\u00e7ar a explorar.",
+    "verse": "vers\u00edculo",
+    "verses": "vers\u00edculos",
+    "chips": {
+      "summary": "Resumo",
+      "themes": "Temas",
+      "entities": "Entidades",
+      "crossRefs": "Refer\u00eancias"
+    }
+  },
+  "verseActions": {
+    "explore": "Explorar",
+    "stopReading": "Parar leitura",
+    "readAloud": "Ler em voz alta",
+    "readAloudUnavailable": "Leitura em voz alta indispon\u00edvel",
+    "listen": "Ouvir",
+    "stop": "Parar",
+    "copied": "Copiado",
+    "copyVerse": "Copiar vers\u00edculo",
+    "copy": "Copiar",
+    "removeBookmark": "Remover marcador",
+    "bookmarkVerse": "Marcar vers\u00edculo",
+    "bookmarked": "Marcado",
+    "bookmark": "Marcar",
+    "clearSelection": "Limpar sele\u00e7\u00e3o",
+    "clear": "Limpar"
+  },
+  "threads": {
+    "chapterContext": {
+      "loading": "Carregando contexto do cap\u00edtulo",
+      "bookIntro": "Introdu\u00e7\u00e3o ao livro",
+      "bookIntroUnavailable": "A introdu\u00e7\u00e3o ao livro ainda n\u00e3o est\u00e1 dispon\u00edvel.",
+      "chapterSummary": "Resumo do cap\u00edtulo",
+      "noSummary": "Nenhum resumo gerado para este cap\u00edtulo ainda.",
+      "aiGenerated": "Gerado com IA - pode conter erros",
+      "noContext": "Nenhum contexto dispon\u00edvel para este cap\u00edtulo.",
+      "appearsIn": "Aparece em:",
+      "verse": "v.",
+      "verses": "vv."
+    },
+    "ask": {
+      "exploring": "Explorando com assistente local...",
+      "answer": "Resposta",
+      "noAnswer": "Nenhum texto de resposta retornado.",
+      "noResponse": "Nenhuma resposta ainda.",
+      "passages": "Passagens Relevantes",
+      "noPassages": "Nenhuma passagem relevante encontrada.",
+      "entities": "Entidades Encontradas",
+      "noEntities": "Nenhuma correspond\u00eancia de entidade encontrada.",
+      "openInReader": "Abrir no leitor"
+    },
+    "parallel": {
+      "searching": "Buscando passagens e entidades...",
+      "noResults": "Nenhum resultado encontrado.",
+      "passages": "Passagens Vetoriais",
+      "noPassages": "Nenhuma passagem vetorial encontrada.",
+      "places": "Lugares",
+      "noPlaces": "Nenhum lugar encontrado.",
+      "people": "Pessoas",
+      "noPeople": "Nenhuma pessoa encontrada.",
+      "openInReader": "Abrir no leitor"
+    },
+    "entityDetail": {
+      "loading": "Carregando detalhes da entidade...",
+      "unavailable": "Detalhes da entidade indispon\u00edveis.",
+      "imageCredit": "Fonte da imagem: OpenBible Images. Cr\u00e9dito: {credit}.",
+      "imageCreditNoCredit": "Fonte da imagem: OpenBible Images.",
+      "imageUnavailable": "Imagem indispon\u00edvel para {name}",
+      "imageUnavailableShort": "Imagem indispon\u00edvel",
+      "location": "Localiza\u00e7\u00e3o",
+      "aliases": "Nomes alternativos",
+      "relatedEntities": "Entidades Relacionadas",
+      "similarPlaces": "Lugares Semelhantes neste Cap\u00edtulo",
+      "similarPeople": "Pessoas Semelhantes neste Cap\u00edtulo",
+      "relatedInChapter": "Relacionados neste Cap\u00edtulo",
+      "appearsIn": "Aparece em:",
+      "verseLinks": "Links de Vers\u00edculos",
+      "crossReferences": "Refer\u00eancias Cruzadas",
+      "aiEnriched": "Enriquecido com IA - pode conter erros",
+      "verse": "v.",
+      "verses": "vv."
+    }
+  },
+  "entities": {
+    "groups": {
+      "people": "Pessoas",
+      "places": "Lugares",
+      "other": "Outras Entidades"
+    },
+    "subtypes": {
+      "place": "Lugar",
+      "region": "Regi\u00e3o",
+      "river": "Rio",
+      "mountain": "Montanha",
+      "hill": "Colina",
+      "city": "Cidade",
+      "town": "Vila",
+      "village": "Aldeia",
+      "sea": "Mar",
+      "lake": "Lago",
+      "island": "Ilha",
+      "desert": "Deserto",
+      "valley": "Vale",
+      "country": "Pa\u00eds",
+      "province": "Prov\u00edncia",
+      "territory": "Territ\u00f3rio",
+      "wilderness": "Ermo",
+      "plain": "Plan\u00edcie",
+      "kingdom": "Reino",
+      "garden": "Jardim",
+      "spring": "Fonte",
+      "body_of_water": "Corpo D'Água",
+      "person": "Pessoa",
+      "prophet": "Profeta",
+      "king": "Rei",
+      "queen": "Rainha",
+      "priest": "Sacerdote",
+      "apostle": "Ap\u00f3stolo",
+      "disciple": "Disc\u00edpulo",
+      "tribe": "Tribo",
+      "nation": "Na\u00e7\u00e3o",
+      "group": "Grupo"
+    }
+  },
+  "errors": {
+    "exploreUnavailable": "Explorar est\u00e1 temporariamente indispon\u00edvel.",
+    "ttsUnavailable": "Leitura em voz alta est\u00e1 temporariamente indispon\u00edvel."
+  },
+  "tts": {
+    "miniPlayer": {
+      "label": "Miniplayer de leitura em voz alta",
+      "prevVerse": "Vers\u00edculo anterior",
+      "pause": "Pausar leitura",
+      "resume": "Retomar leitura",
+      "nextVerse": "Pr\u00f3ximo vers\u00edculo",
+      "changeSpeed": "Alterar velocidade de reprodu\u00e7\u00e3o",
+      "speedLabel": "Velocidade: {speed}",
+      "close": "Fechar leitor de voz",
+      "stopAndClose": "Parar e fechar",
+      "loading": "Carregando",
+      "playing": "Reproduzindo",
+      "paused": "Pausado",
+      "idle": "Inativo"
+    }
+  }
+}

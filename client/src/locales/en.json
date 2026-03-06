@@ -1,0 +1,239 @@
+{
+  "nav": {
+    "library": "Library",
+    "insights": "Insights",
+    "toggleLibrary": "Toggle Library panel",
+    "toggleInsights": "Toggle Insights panel",
+    "explore": "Explore",
+    "exploring": "Exploring...",
+    "explorePlaceholder": "Ask about this passage...",
+    "exploreTitle": "Explore passage insights",
+    "settings": "Reader settings"
+  },
+  "reader": {
+    "loading": "Loading chapter...",
+    "noVerses": "No verses found for this chapter.",
+    "selectionActive": "Selection active",
+    "exploreSelection": "Explore selected verse(s)",
+    "listenFromSelection": "Listen from selection",
+    "listenChapter": "Listen chapter",
+    "listenChapterFrom": "from verse 1",
+    "listenChapterTitle": "Listen to this chapter from verse 1",
+    "tapToExtend": "Tap another verse to extend range.",
+    "clear": "Clear",
+    "copy": "Copy",
+    "prevChapter": "Previous chapter",
+    "nextChapter": "Next chapter"
+  },
+  "header": {
+    "prev": "Prev",
+    "next": "Next",
+    "prevChapter": "Previous chapter",
+    "nextChapter": "Next chapter",
+    "chapterSelect": "Chapter"
+  },
+  "settings": {
+    "title": "Reader Settings",
+    "close": "Close settings",
+    "translation": "Translation",
+    "voice": "Read aloud voice",
+    "voiceSelect": "Select read aloud voice",
+    "textSize": "Text size",
+    "lineSpacing": "Line spacing",
+    "font": "Font",
+    "theme": "Theme",
+    "sizes": {
+      "sm": "SM",
+      "md": "MD",
+      "lg": "LG",
+      "xl": "XL"
+    },
+    "spacing": {
+      "normal": "Normal",
+      "relaxed": "Relaxed",
+      "loose": "Loose"
+    },
+    "fonts": {
+      "serif": "Serif",
+      "sans": "Sans"
+    },
+    "themes": {
+      "light": "Light",
+      "sepia": "Sepia",
+      "dark": "Dark"
+    }
+  },
+  "library": {
+    "title": "Library",
+    "close": "Close Library",
+    "searchPlaceholder": "Search books\u2026",
+    "searchLabel": "Search books",
+    "searchDisabled": "Search is disabled while selecting a chapter",
+    "books": "Books",
+    "pinBook": "Pin book",
+    "unpinBook": "Unpin book",
+    "chaptersOf": "Chapters of {name}",
+    "chapter": "Chapter {n}",
+    "pinned": "Pinned",
+    "recent": "Recent",
+    "clear": "Clear",
+    "removeFromRecent": "Remove {name} from recent",
+    "oldTestament": "Old Testament",
+    "newTestament": "New Testament",
+    "noMatch": "No books match \"{query}\""
+  },
+  "context": {
+    "back": "Back",
+    "insightsPanel": "Insights panel",
+    "close": "Close insights",
+    "selectionActive": "Selection active",
+    "clearSelection": "Clear selection",
+    "exploreSelection": "Explore Selection",
+    "quickPromptHint": "Choose a quick prompt to generate insights for this verse selection.",
+    "emptyWithSelection": "Use a quick prompt above or type a question to explore this selection.",
+    "emptyNoChapter": "Open a chapter to begin exploring.",
+    "verse": "verse",
+    "verses": "verses",
+    "chips": {
+      "summary": "Summary",
+      "themes": "Themes",
+      "entities": "Entities",
+      "crossRefs": "Cross-refs"
+    }
+  },
+  "verseActions": {
+    "explore": "Explore",
+    "stopReading": "Stop reading",
+    "readAloud": "Read aloud",
+    "readAloudUnavailable": "Read aloud is unavailable",
+    "listen": "Listen",
+    "stop": "Stop",
+    "copied": "Copied",
+    "copyVerse": "Copy verse",
+    "copy": "Copy",
+    "removeBookmark": "Remove bookmark",
+    "bookmarkVerse": "Bookmark verse",
+    "bookmarked": "Bookmarked",
+    "bookmark": "Bookmark",
+    "clearSelection": "Clear selection",
+    "clear": "Clear"
+  },
+  "threads": {
+    "chapterContext": {
+      "loading": "Loading chapter context",
+      "bookIntro": "Book introduction",
+      "bookIntroUnavailable": "Book introduction is not available yet.",
+      "chapterSummary": "Chapter summary",
+      "noSummary": "No summary generated for this chapter yet.",
+      "aiGenerated": "Generated with AI - may contain errors",
+      "noContext": "No context available for this chapter.",
+      "appearsIn": "Appears in:",
+      "verse": "v.",
+      "verses": "vv."
+    },
+    "ask": {
+      "exploring": "Exploring with local assistant...",
+      "answer": "Answer",
+      "noAnswer": "No answer text returned.",
+      "noResponse": "No response yet.",
+      "passages": "Relevant Passages",
+      "noPassages": "No relevant passages found.",
+      "entities": "Found Entities",
+      "noEntities": "No entity matches found.",
+      "openInReader": "Open in reader"
+    },
+    "parallel": {
+      "searching": "Searching passages and entities...",
+      "noResults": "No results found.",
+      "passages": "Vector Passages",
+      "noPassages": "No vector passages found.",
+      "places": "Places",
+      "noPlaces": "No place matches.",
+      "people": "People",
+      "noPeople": "No people matches.",
+      "openInReader": "Open in reader"
+    },
+    "entityDetail": {
+      "loading": "Loading entity detail...",
+      "unavailable": "Entity detail unavailable.",
+      "imageCredit": "Image source: OpenBible Images. Credit: {credit}.",
+      "imageCreditNoCredit": "Image source: OpenBible Images.",
+      "imageUnavailable": "Image unavailable for {name}",
+      "imageUnavailableShort": "Image unavailable",
+      "location": "Location",
+      "aliases": "Aliases",
+      "relatedEntities": "Related Entities",
+      "similarPlaces": "Similar Places in This Chapter",
+      "similarPeople": "Similar People in This Chapter",
+      "relatedInChapter": "Related in This Chapter",
+      "appearsIn": "Appears in:",
+      "verseLinks": "Verse Links",
+      "crossReferences": "Cross References",
+      "aiEnriched": "Enriched with AI - may contain errors",
+      "verse": "v.",
+      "verses": "vv."
+    }
+  },
+  "entities": {
+    "groups": {
+      "people": "People",
+      "places": "Places",
+      "other": "Other Entities"
+    },
+    "subtypes": {
+      "place": "Place",
+      "region": "Region",
+      "river": "River",
+      "mountain": "Mountain",
+      "hill": "Hill",
+      "city": "City",
+      "town": "Town",
+      "village": "Village",
+      "sea": "Sea",
+      "lake": "Lake",
+      "island": "Island",
+      "desert": "Desert",
+      "valley": "Valley",
+      "country": "Country",
+      "province": "Province",
+      "territory": "Territory",
+      "wilderness": "Wilderness",
+      "plain": "Plain",
+      "kingdom": "Kingdom",
+      "garden": "Garden",
+      "spring": "Spring",
+      "body_of_water": "Body of Water",
+      "person": "Person",
+      "prophet": "Prophet",
+      "king": "King",
+      "queen": "Queen",
+      "priest": "Priest",
+      "apostle": "Apostle",
+      "disciple": "Disciple",
+      "tribe": "Tribe",
+      "nation": "Nation",
+      "group": "Group"
+    }
+  },
+  "errors": {
+    "exploreUnavailable": "Explore is temporarily unavailable.",
+    "ttsUnavailable": "Read aloud is temporarily unavailable."
+  },
+  "tts": {
+    "miniPlayer": {
+      "label": "Read aloud mini player",
+      "prevVerse": "Previous verse",
+      "pause": "Pause reading",
+      "resume": "Resume reading",
+      "nextVerse": "Next verse",
+      "changeSpeed": "Change playback speed",
+      "speedLabel": "Playback speed {speed}",
+      "close": "Close read aloud player",
+      "stopAndClose": "Stop and close",
+      "loading": "Loading",
+      "playing": "Playing",
+      "paused": "Paused",
+      "idle": "Idle"
+    }
+  }
+}
