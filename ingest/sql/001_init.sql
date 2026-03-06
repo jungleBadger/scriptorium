@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE TABLE verses (
                         ref           TEXT PRIMARY KEY,
                         translation   TEXT NOT NULL,
