@@ -27,6 +27,7 @@ await app.register(rateLimit, {
   max: 300,
   timeWindow: "1 minute",
   errorResponseBuilder: (_req, context) => ({
+    statusCode: 429,
     error: `Too many requests. Please try again in ${context.after}.`,
     code: "RATE_LIMIT_EXCEEDED",
     retryable: true,
