@@ -888,7 +888,6 @@ function onSelectVerse(verse) {
 function onExtendSelection(verse) {
   const verseNumber = Number(verse);
   if (!Number.isFinite(verseNumber)) return;
-  activeVerse.value = verseNumber;
   readerUx.extendSelectionToVerse(verseNumber);
 }
 
