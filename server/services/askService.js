@@ -14,6 +14,15 @@ import { getPool } from "./pool.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASK_PROMPT_TEMPLATE = readFileSync(join(__dirname, "../prompts/ask.txt"), "utf-8").trimEnd();
 
+const TRANSLATION_LANGUAGE_NAME = {
+  PT1911: "Portuguese",
+  ARC:    "Portuguese",
+};
+
+function translationLanguageName(translation) {
+  return TRANSLATION_LANGUAGE_NAME[String(translation || "").toUpperCase()] ?? "English";
+}
+
 const ENTITY_STOPWORDS = new Set([
   "about", "after", "also", "been", "being", "from", "have", "into", "that", "their",
   "them", "then", "there", "these", "this", "those", "what", "when", "where", "which",
@@ -203,6 +212,7 @@ export function buildAskPrompt({ question, translation, book, chapter, verse, ch
     : "";
 
   return ASK_PROMPT_TEMPLATE
+    .replace("{{LANGUAGE}}", translationLanguageName(translation))
     .replace("{{TRANSLATION}}", translation)
     .replace("{{BOOK}}", book)
     .replace("{{CHAPTER}}", chapter)

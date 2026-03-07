@@ -99,6 +99,13 @@
       "themes": "Themes",
       "entities": "Entities",
       "crossRefs": "Cross-refs"
+    },
+    "prompts": {
+      "summary": "Give a concise summary of {ref} in context.",
+      "themes": "What are the main themes in {ref}?",
+      "entities": "Identify the key people and places in {ref}.",
+      "crossRefs": "Show relevant cross references for {ref} and explain the connections.",
+      "default": "Explain {ref} in context."
     }
   },
   "verseActions": {
@@ -217,7 +224,8 @@
   },
   "errors": {
     "exploreUnavailable": "Explore is temporarily unavailable.",
-    "ttsUnavailable": "Read aloud is temporarily unavailable."
+    "ttsUnavailable": "Read aloud is temporarily unavailable.",
+    "exploreFailedRetry": "Could not explore this passage right now. Try again."
   },
   "tts": {
     "miniPlayer": {
