@@ -1,28 +1,33 @@
 // server/services/embedder.js
-// Loads the multilingual embedding model once, exports embedQuery().
+// Embeds a query text using Google text-embedding-004 (768-dim).
+// Used by vectorSearch.js when semantic search is re-enabled.
 
-import { pipeline } from "@xenova/transformers";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const MODEL = process.env.EMBED_MODEL || "Xenova/paraphrase-multilingual-MiniLM-L12-v2";
+const EMBED_MODEL = "text-embedding-004";
 
-let _pipeline = null;
+let _model = null;
 
-async function getPipeline() {
-  if (!_pipeline) {
-    console.log(`[embedder] Loading model: ${MODEL}`);
-    _pipeline = await pipeline("feature-extraction", MODEL);
-    console.log("[embedder] Model ready.");
+function getModel() {
+  if (!_model) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) throw new Error("GEMINI_API_KEY is required for embedder.");
+    const genai = new GoogleGenerativeAI(apiKey);
+    _model = genai.getGenerativeModel({ model: EMBED_MODEL });
   }
-  return _pipeline;
+  return _model;
 }
 
 /**
- * Embed a single text query into a float[] vector.
+ * Embed a single text query into a float[] vector (768-dim).
  * @param {string} text
  * @returns {Promise<number[]>}
  */
 export async function embedQuery(text) {
-  const pipe = await getPipeline();
-  const output = await pipe([text], { pooling: "mean", normalize: true });
-  return output.tolist()[0];
+  const model = getModel();
+  const result = await model.embedContent({
+    content: { parts: [{ text }] },
+    taskType: "RETRIEVAL_QUERY",
+  });
+  return result.embedding.values;
 }

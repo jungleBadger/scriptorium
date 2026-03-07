@@ -1,14 +1,12 @@
 // server/services/askService.js
-// Retrieval + prompt composition + Ollama answer generation for /api/ask.
+// Retrieval + prompt composition + Gemini answer generation for /api/ask.
+// Vector/semantic search is intentionally omitted in this version;
+// context is built from chapter text + entity lookup instead.
 
-import { getPool } from "./pool.js";
 import { searchEntities } from "./entitiesRepo.js";
-import { embedQuery } from "./embedder.js";
-import { searchChunks } from "./vectorSearch.js";
-import { fetchChunksByIds } from "./chunksRepo.js";
-import { rerank } from "./rerank.js";
-import { generateOllamaText } from "./ollamaClient.js";
-import { getVerseRange } from "./versesRepo.js";
+import { generateGeminiText } from "./geminiClient.js";
+import { getChapter } from "./versesRepo.js";
+import { getPool } from "./pool.js";
 
 const ENTITY_STOPWORDS = new Set([
   "about", "after", "also", "been", "being", "from", "have", "into", "that", "their",
@@ -18,10 +16,9 @@ const ENTITY_STOPWORDS = new Set([
   "quem", "foi", "sao",
 ]);
 
-const MAX_ENTITY_TERMS = 8;
-const ENTITY_SEARCH_LIMIT = 30;
+const MAX_ENTITY_TERMS      = 8;
+const ENTITY_SEARCH_LIMIT   = 30;
 const ENTITY_REFS_PER_ENTITY = 8;
-const MAX_RELEVANT_PASSAGES_RESPONSE = 3;
 
 function normalizeToken(value) {
   return String(value || "").trim().toLowerCase();
@@ -37,11 +34,11 @@ function extractEntityTerms(question, activeEntityIds = []) {
     const value = normalizeToken(id);
     if (!value) continue;
     const parts = value.split(":").filter(Boolean);
-    const tail = parts[parts.length - 1] || value;
+    const tail  = parts[parts.length - 1] || value;
     if (tail.length >= 3 && !ENTITY_STOPWORDS.has(tail)) words.push(tail);
   }
 
-  const seen = new Set();
+  const seen   = new Set();
   const unique = [];
   for (const term of words) {
     if (seen.has(term)) continue;
@@ -58,12 +55,12 @@ function normalizeActiveEntityId(value) {
 
 function scoreEntityCandidate(entity, term, termIndex, rowIndex, activeBoostKeys) {
   const canonical = normalizeToken(entity?.canonical_name);
-  const sourceId = normalizeToken(entity?.source_id);
-  const entityId = String(entity?.id ?? "");
+  const sourceId  = normalizeToken(entity?.source_id);
+  const entityId  = String(entity?.id ?? "");
 
   let score = Math.max(0, 120 - termIndex * 20 - rowIndex);
   if (canonical.startsWith(term)) score += 45;
-  if (canonical.includes(term)) score += 15;
+  if (canonical.includes(term))   score += 15;
   if (sourceId && sourceId.includes(term)) score += 15;
 
   const candidateKeys = new Set([
@@ -74,12 +71,8 @@ function scoreEntityCandidate(entity, term, termIndex, rowIndex, activeBoostKeys
   ]);
   for (const key of candidateKeys) {
     if (!key) continue;
-    if (activeBoostKeys.has(key)) {
-      score += 1000;
-      break;
-    }
+    if (activeBoostKeys.has(key)) { score += 1000; break; }
   }
-
   return score;
 }
 
@@ -88,39 +81,20 @@ async function fetchActiveEntityRows(activeEntityIds) {
   if (!ids.length) return [];
 
   const numericIds = [];
-  const sourceIds = [];
+  const sourceIds  = [];
   for (const raw of ids) {
     const trimmed = String(raw || "").trim();
     if (!trimmed) continue;
-    if (/^\d+$/.test(trimmed)) {
-      numericIds.push(Number(trimmed));
-      continue;
-    }
-    const parts = trimmed.split(":").filter(Boolean);
+    if (/^\d+$/.test(trimmed)) { numericIds.push(Number(trimmed)); continue; }
+    const parts    = trimmed.split(":").filter(Boolean);
     const sourceId = parts[parts.length - 1] || trimmed;
     if (sourceId) sourceIds.push(sourceId.toLowerCase());
   }
 
   if (!numericIds.length && !sourceIds.length) return [];
 
-  const pool = getPool();
-  const { rows } = await pool.query(
-    `SELECT
-       e.id, e.canonical_name, e.type, e.lon, e.lat, e.source, e.source_id,
-       (
-         SELECT jsonb_build_object(
-           'image_id',   oi.id,
-           'url',        oi.image_url,
-           'credit',     oi.credit,
-           'credit_url', oi.credit_url,
-           'license',    oi.license
-         )
-         FROM entity_image_links eil
-         JOIN openbible_images oi ON oi.id = eil.image_id
-         WHERE eil.entity_id = e.id
-         ORDER BY CASE WHEN lower(eil.role) LIKE '%thumbnail%' THEN 0 ELSE 1 END, eil.image_id
-         LIMIT 1
-       ) AS thumbnail
+  const { rows } = await getPool().query(
+    `SELECT e.id, e.canonical_name, e.type, e.source, e.source_id
      FROM entities e
      WHERE e.id = ANY($1::int[]) OR lower(coalesce(e.source_id, '')) = ANY($2::text[])`,
     [numericIds, sourceIds]
@@ -134,22 +108,7 @@ async function hydrateEntities(entityIds) {
 
   const [entityRows, refsRows] = await Promise.all([
     pool.query(
-      `SELECT
-         e.id, e.canonical_name, e.type, e.lon, e.lat, e.source, e.source_id,
-         (
-           SELECT jsonb_build_object(
-             'image_id',   oi.id,
-             'url',        oi.image_url,
-             'credit',     oi.credit,
-             'credit_url', oi.credit_url,
-             'license',    oi.license
-           )
-           FROM entity_image_links eil
-           JOIN openbible_images oi ON oi.id = eil.image_id
-           WHERE eil.entity_id = e.id
-           ORDER BY CASE WHEN lower(eil.role) LIKE '%thumbnail%' THEN 0 ELSE 1 END, eil.image_id
-           LIMIT 1
-         ) AS thumbnail
+      `SELECT e.id, e.canonical_name, e.type, e.source, e.source_id
        FROM entities e
        WHERE e.id = ANY($1::int[])
        ORDER BY array_position($1::int[], e.id)`,
@@ -158,14 +117,11 @@ async function hydrateEntities(entityIds) {
     pool.query(
       `SELECT entity_id, book_id, chapter, verse
        FROM (
-         SELECT
-           ev.entity_id, ev.book_id, ev.chapter, ev.verse,
-           ROW_NUMBER() OVER (
-             PARTITION BY ev.entity_id
-             ORDER BY ev.book_id, ev.chapter, ev.verse
-           ) AS rn
-         FROM entity_verses ev
-         WHERE ev.entity_id = ANY($1::int[])
+         SELECT ev.entity_id, ev.book_id, ev.chapter, ev.verse,
+                ROW_NUMBER() OVER (
+                  PARTITION BY ev.entity_id ORDER BY ev.book_id, ev.chapter, ev.verse
+                ) AS rn
+         FROM entity_verses ev WHERE ev.entity_id = ANY($1::int[])
        ) ranked
        WHERE rn <= $2
        ORDER BY entity_id, rn`,
@@ -176,38 +132,23 @@ async function hydrateEntities(entityIds) {
   const refsByEntity = new Map();
   for (const row of refsRows.rows) {
     const list = refsByEntity.get(row.entity_id) || [];
-    list.push({
-      book_id: row.book_id,
-      chapter: row.chapter,
-      verse: row.verse,
-      ref: `${row.book_id} ${row.chapter}:${row.verse}`,
-    });
+    list.push({ book_id: row.book_id, chapter: row.chapter, verse: row.verse,
+                ref: `${row.book_id} ${row.chapter}:${row.verse}` });
     refsByEntity.set(row.entity_id, list);
   }
 
-  return entityRows.rows.map((row) => {
-    const lat = Number(row.lat);
-    const lon = Number(row.lon);
-    const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
-    return {
-      id: row.id,
-      type: row.type,
-      name: row.canonical_name,
-      appears_in: refsByEntity.get(row.id) || [],
-      ...(hasCoords ? { lat, lon } : {}),
-      ...(row.thumbnail ? { thumbnail: row.thumbnail } : {}),
-      ...(row.source ? { source: row.source } : {}),
-      ...(row.source_id ? { source_id: row.source_id } : {}),
-    };
-  });
+  return entityRows.rows.map((row) => ({
+    id:         row.id,
+    type:       row.type,
+    name:       row.canonical_name,
+    appears_in: refsByEntity.get(row.id) || [],
+    ...(row.source    ? { source:    row.source }    : {}),
+    ...(row.source_id ? { source_id: row.source_id } : {}),
+  }));
 }
 
-export async function retrieveFoundEntities({
-  question,
-  activeEntityIds = [],
-  kEntities = 12,
-} = {}) {
-  const terms = extractEntityTerms(question, activeEntityIds);
+export async function retrieveFoundEntities({ question, activeEntityIds = [], kEntities = 12 } = {}) {
+  const terms         = extractEntityTerms(question, activeEntityIds);
   const activeBoostKeys = new Set(
     (activeEntityIds || []).map(normalizeActiveEntityId).filter(Boolean)
   );
@@ -222,20 +163,16 @@ export async function retrieveFoundEntities({
     const rows = Array.isArray(result?.results) ? result.results : [];
     for (const [rowIndex, row] of rows.entries()) {
       const current = ranked.get(row.id);
-      const score = scoreEntityCandidate(row, term, termIndex, rowIndex, activeBoostKeys);
-      if (!current || score > current.score) {
-        ranked.set(row.id, { score });
-      }
+      const score   = scoreEntityCandidate(row, term, termIndex, rowIndex, activeBoostKeys);
+      if (!current || score > current.score) ranked.set(row.id, { score });
     }
   }
 
   const activeRows = await fetchActiveEntityRows(activeEntityIds);
   for (const row of activeRows) {
-    const current = ranked.get(row.id);
+    const current     = ranked.get(row.id);
     const boostedScore = 5000;
-    if (!current || boostedScore > current.score) {
-      ranked.set(row.id, { score: boostedScore });
-    }
+    if (!current || boostedScore > current.score) ranked.set(row.id, { score: boostedScore });
   }
 
   const orderedIds = [...ranked.entries()]
@@ -247,123 +184,13 @@ export async function retrieveFoundEntities({
   return hydrateEntities(orderedIds);
 }
 
-export async function retrieveRelevantPassages({
-  question,
-  translation,
-  book,
-  chapter,
-  verse,
-  kPassages = 10,
-} = {}) {
-  const requested = Math.max(1, Math.trunc(Number(kPassages) || 10));
-  const limit = Math.min(MAX_RELEVANT_PASSAGES_RESPONSE, requested);
-  const passages = [];
-  const seenRanges = new Set();
-
-  const bookId = String(book || "").trim().toUpperCase();
-  const chapterNumber = Number(chapter);
-  const verseNumber = Number(verse);
-  const hasValidAnchor =
-    bookId &&
-    Number.isFinite(chapterNumber) &&
-    chapterNumber > 0 &&
-    Number.isFinite(verseNumber) &&
-    verseNumber > 0;
-
-  if (hasValidAnchor) {
-    const currentVerse = await getVerseRange(
-      translation,
-      bookId,
-      chapterNumber,
-      verseNumber,
-      verseNumber
-    );
-    const verseText = String(currentVerse?.[0]?.text || "").trim();
-    if (verseText) {
-      passages.push({
-        id: `anchor:${translation}:${bookId}:${chapterNumber}:${verseNumber}`,
-        ref: `${bookId} ${chapterNumber}:${verseNumber}`,
-        source: "verse",
-        snippet: verseText,
-        score: 1,
-        book_id: bookId,
-        chapter: chapterNumber,
-        verse_start: verseNumber,
-        verse_end: verseNumber,
-        translation,
-      });
-      seenRanges.add(`${bookId}:${chapterNumber}:${verseNumber}:${verseNumber}`);
-    }
-  }
-
-  if (passages.length >= limit) return passages.slice(0, limit);
-
-  const vector = await embedQuery(question);
-  const candidateLimit = Math.max(limit * 3, 30);
-  const candidates = await searchChunks(vector, candidateLimit, [translation]);
-  if (!candidates.length) return passages;
-
-  const ids = candidates.map((row) => row.chunk_id);
-  const chunks = await fetchChunksByIds(ids);
-  const chunkById = new Map(chunks.map((row) => [row.chunk_id, row]));
-
-  const hydrated = candidates
-    .filter((row) => chunkById.has(row.chunk_id))
-    .map((row) => ({
-      ...row,
-      text_clean: chunkById.get(row.chunk_id).text_clean,
-    }));
-
-  const ranked = rerank(hydrated, question, "explorer");
-  for (const row of ranked) {
-    if (passages.length >= limit) break;
-    const sameRef = row.ref_start && row.ref_end && row.ref_start === row.ref_end;
-    const source =
-      Number.isFinite(row.verse_start) &&
-      Number.isFinite(row.verse_end) &&
-      row.verse_start === row.verse_end
-        ? "verse"
-        : "chunk";
-    const rangeKey = `${row.book_id}:${row.chapter}:${row.verse_start}:${row.verse_end}`;
-    if (seenRanges.has(rangeKey)) continue;
-    seenRanges.add(rangeKey);
-
-    passages.push({
-      id: row.chunk_id,
-      ref: sameRef ? row.ref_start : `${row.ref_start} - ${row.ref_end}`,
-      source,
-      snippet: row.text_clean,
-      score: row.final_score,
-      book_id: row.book_id,
-      chapter: row.chapter,
-      verse_start: row.verse_start,
-      verse_end: row.verse_end,
-      translation: row.translation,
-    });
-  }
-
-  return passages;
-}
-
-export function buildAskPrompt({
-  question,
-  translation,
-  book,
-  chapter,
-  verse,
-  anchorPassage = null,
-  relevantPassages = [],
-  foundEntities = [],
-} = {}) {
+export function buildAskPrompt({ question, translation, book, chapter, verse, chapterVerses = [], foundEntities = [] } = {}) {
   const location = `${translation} ${book} ${chapter}:${verse}`;
-  const anchorRef = String(anchorPassage?.ref || location).trim();
-  const anchorText = String(anchorPassage?.snippet || "").trim();
-  const anchorLine = anchorText ? `${anchorRef} - ${anchorText}` : `${anchorRef} - (text unavailable)`;
 
   const lines = [
     "You are a Bible study assistant.",
     "Answer the user's question as directly and helpfully as possible.",
-    "The reader location is optional context, not a hard constraint.",
+    "The reader location and chapter text are context, not a hard constraint.",
     "The user may ask about any biblical topic beyond the selected passage.",
     "Use your broader biblical knowledge when needed.",
     "Do not default to saying context is missing when you can answer.",
@@ -375,25 +202,15 @@ export function buildAskPrompt({
     "",
     "[READER_LOCATION]",
     location,
-    "",
-    "[READER_CONTEXT_VERSE]",
-    anchorLine,
   ];
 
-  // Include other retrieved passages (anchor is already shown above)
-  const anchorId = anchorPassage?.id ?? null;
-  const otherPassages = Array.isArray(relevantPassages)
-    ? relevantPassages.filter((p) => p.id !== anchorId)
-    : [];
-  if (otherPassages.length) {
-    lines.push("", "[RETRIEVED_PASSAGES]");
-    for (const p of otherPassages) {
-      const snippet = String(p.snippet || "").trim();
-      if (snippet) lines.push(`${p.ref} - ${snippet}`);
+  if (chapterVerses.length) {
+    lines.push("", `[CHAPTER_TEXT]`, `${book} ${chapter} (${translation})`);
+    for (const v of chapterVerses) {
+      lines.push(`${v.verse} ${v.text}`);
     }
   }
 
-  // Include top entity names so the model knows which people/places are relevant
   const entityNames = Array.isArray(foundEntities)
     ? foundEntities.slice(0, 5).map((e) => `${e.name} (${e.type})`).filter(Boolean)
     : [];
@@ -402,7 +219,6 @@ export function buildAskPrompt({
   }
 
   lines.push("", "[QUESTION]", question);
-
   return lines.join("\n");
 }
 
@@ -414,47 +230,33 @@ export async function askQuestion({
   verse,
   activeEntityIds = [],
   kEntities = 12,
-  kPassages = 10,
 } = {}) {
-  const cleanQuestion = String(question || "").trim();
+  const cleanQuestion    = String(question || "").trim();
   if (!cleanQuestion) throw new Error("Question cannot be empty.");
 
-  const [foundEntities, relevantPassages] = await Promise.all([
-    retrieveFoundEntities({ question: cleanQuestion, activeEntityIds, kEntities }),
-    retrieveRelevantPassages({ question: cleanQuestion, translation, book, chapter, verse, kPassages }),
-  ]);
-
-  const normalizedBook = String(book || "").trim().toUpperCase();
+  const normalizedBook    = String(book || "").trim().toUpperCase();
   const normalizedChapter = Number(chapter);
-  const normalizedVerse = Number(verse);
-  const anchorPassage = relevantPassages.find((passage) => (
-    String(passage?.book_id || "").trim().toUpperCase() === normalizedBook &&
-    Number(passage?.chapter) === normalizedChapter &&
-    Number(passage?.verse_start) === normalizedVerse &&
-    Number(passage?.verse_end) === normalizedVerse
-  )) || null;
+
+  const [foundEntities, chapterVerses] = await Promise.all([
+    retrieveFoundEntities({ question: cleanQuestion, activeEntityIds, kEntities }),
+    getChapter(translation, normalizedBook, normalizedChapter),
+  ]);
 
   const prompt = buildAskPrompt({
     question: cleanQuestion,
     translation,
-    book,
-    chapter,
+    book:    normalizedBook,
+    chapter: normalizedChapter,
     verse,
-    anchorPassage,
-    relevantPassages,
+    chapterVerses,
     foundEntities,
   });
 
-  const rawResponseText = await generateOllamaText({
-    prompt,
-    model: "qwen3:8b",
-    temperature: 0.2,
-    maxTokens: 700,
-  });
+  const rawResponseText = await generateGeminiText({ prompt, temperature: 0.2, maxTokens: 800 });
 
   return {
-    raw_response_text: rawResponseText,
-    found_entities: foundEntities,
-    relevant_passages: relevantPassages,
+    raw_response_text:  rawResponseText,
+    found_entities:     foundEntities,
+    relevant_passages:  [], // vector search removed; re-enabled when embeddings are re-ingested
   };
 }
