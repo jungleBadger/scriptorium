@@ -89,9 +89,14 @@ async function ttsChapterHandler(req, reply) {
   }
 }
 
+// Shared rate limit for TTS generation routes.
+// R2 caching means most requests are served from cache and never hit the TTS API,
+// so limits can be generous. 500/hour covers extended listening sessions.
+const ttsRateLimit = { rateLimit: { max: 500, timeWindow: "1 hour" } };
+
 export default async function ttsRoutes(app) {
   app.get("/api/tts/voices", () => listVoices());
-  app.post("/api/tts/verse", { schema: ttsSchema }, ttsHandler);
-  app.post("/api/tts/chapter", { schema: ttsChapterSchema }, ttsChapterHandler);
-  app.post("/api/tts", { schema: ttsSchema }, ttsHandler);
+  app.post("/api/tts/verse",    { schema: ttsSchema,        config: ttsRateLimit }, ttsHandler);
+  app.post("/api/tts/chapter",  { schema: ttsChapterSchema, config: ttsRateLimit }, ttsChapterHandler);
+  app.post("/api/tts",          { schema: ttsSchema,        config: ttsRateLimit }, ttsHandler);
 }

@@ -23,6 +23,12 @@ services:
       - key: PGSSL
         value: "true"
 
+      # --- Gemini AI (required — Explore feature) ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+
       # --- TTS / voice.ai (leave unset to disable feature) ---
       - key: VOICE_AI_API_KEY
         sync: false
@@ -41,10 +47,4 @@ services:
       - key: R2_BUCKET_NAME
         sync: false
       - key: R2_SIGNED_URL_TTL_SECONDS
-        sync: false
-
-      # --- Ollama / LLM (leave unset to disable feature) ---
-      - key: OLLAMA_HOST
-        sync: false
-      - key: OLLAMA_MODEL
         sync: false

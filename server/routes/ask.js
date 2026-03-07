@@ -40,34 +40,22 @@ function normalizeAskError(err) {
         : "ASK_BAD_REQUEST";
   const retryable = statusCode >= 500;
 
-  if (code === "OLLAMA_UNREACHABLE") {
-    return {
-      statusCode: 503,
-      code,
-      retryable: true,
-      message: "Local Ollama is unavailable. Start `ollama serve` and try again.",
-    };
+  if (code === "GEMINI_NOT_CONFIGURED") {
+    return { statusCode: 503, code, retryable: false, message: "The AI service is not configured." };
   }
-  if (code === "OLLAMA_MODEL_MISSING") {
-    return {
-      statusCode: 503,
-      code,
-      retryable: false,
-      message: "Ollama model qwen3:8b is missing. Run `ollama pull qwen3:8b`.",
-    };
+  if (code === "GEMINI_RATE_LIMITED") {
+    return { statusCode: 429, code, retryable: true, message: "Too many requests. Please try again shortly." };
   }
-  if (code === "OLLAMA_TIMEOUT") {
-    return {
-      statusCode: 504,
-      code,
-      retryable: true,
-      message: "Ollama timed out while generating an answer. Please retry.",
-    };
+  if (code === "GEMINI_SAFETY_BLOCK") {
+    return { statusCode: 422, code, retryable: false, message: "This question could not be answered due to content safety filters. Try rephrasing." };
+  }
+  if (code === "GEMINI_AUTH_ERROR") {
+    return { statusCode: 503, code, retryable: false, message: "The AI service is misconfigured." };
   }
 
   const fallbackMessage = statusCode >= 500
-    ? "Ask request failed due to a server error."
-    : "Ask request failed.";
+    ? "Could not generate an answer due to a server error."
+    : "Could not generate an answer.";
 
   return {
     statusCode,
@@ -112,5 +100,11 @@ async function askHandler(req, reply) {
 }
 
 export default async function askRoutes(app) {
-  app.post("/api/ask", { schema: askSchema }, askHandler);
+  app.post("/api/ask", {
+    schema: askSchema,
+    config: {
+      // LLM inference is slow and expensive — 10 requests per 5 minutes per IP.
+      rateLimit: { max: 10, timeWindow: "5 minutes" },
+    },
+  }, askHandler);
 }

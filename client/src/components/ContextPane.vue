@@ -12,6 +12,7 @@ const { t } = useI18n();
 
 const props = defineProps({
   currentView: { type: Object, default: null },
+  loading: { type: Boolean, default: false },
   canGoBack: { type: Boolean, default: false },
   stackDepth: { type: Number, default: 0 },
   selectedEntityId: { type: Number, default: null },
@@ -173,7 +174,7 @@ const headerMetaParts = computed(() => {
         </div>
       </div>
 
-      <div v-if="!currentView" class="state-text context-empty-state">
+      <div v-if="!currentView && !loading" class="state-text context-empty-state">
         {{ hasSelection ? t('context.emptyWithSelection') : t('context.emptyNoChapter') }}
       </div>
 

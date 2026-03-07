@@ -1188,6 +1188,7 @@ useGlobalShortcuts({
       <section v-if="showInsightsColumn" class="surface-card context-column">
         <ContextPane
           :current-view="currentView"
+          :loading="readerLoading"
           :can-go-back="canGoBack"
           :stack-depth="stackDepth"
           :selected-entity-id="selectedEntityId"
@@ -1237,6 +1238,7 @@ useGlobalShortcuts({
     >
       <ContextPane
         :current-view="currentView"
+        :loading="readerLoading"
         :can-go-back="canGoBack"
         :stack-depth="stackDepth"
         :selected-entity-id="selectedEntityId"
@@ -1268,6 +1270,7 @@ useGlobalShortcuts({
     >
       <ContextPane
         :current-view="currentView"
+        :loading="readerLoading"
         :can-go-back="canGoBack"
         :stack-depth="stackDepth"
         :selected-entity-id="selectedEntityId"

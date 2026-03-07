@@ -13,6 +13,7 @@ defineProps({
   voiceId: { type: String, default: "" },
   isExploring: { type: Boolean, default: false },
   exploreError: { type: String, default: null },
+  loading: { type: Boolean, default: false },
   chromeHidden: { type: Boolean, default: false },
   exploreEnabled: { type: Boolean, default: true },
   exploreDisabledReason: { type: String, default: null },
@@ -72,6 +73,7 @@ function openSettings() {
         class="field-input gtb-explore-input"
         :placeholder="t('nav.explorePlaceholder')"
         :aria-label="t('nav.explore')"
+        :disabled="loading"
         :aria-busy="isExploring ? 'true' : 'false'"
         title="Focus search (/)"
         @input="emit('quick-query-change', $event.target.value)"
@@ -81,7 +83,7 @@ function openSettings() {
         v-if="exploreEnabled"
         class="primary-btn compact gtb-explore-btn flex items-center gap-2"
         type="button"
-        :disabled="isExploring"
+        :disabled="loading || isExploring"
         :title="t('nav.exploreTitle')"
         :aria-busy="isExploring ? 'true' : 'false'"
         @click="emit('explore-query')"
