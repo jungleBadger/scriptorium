@@ -3,10 +3,16 @@
 // Vector/semantic search is intentionally omitted in this version;
 // context is built from chapter text + entity lookup instead.
 
+import { readFileSync } from "fs";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { searchEntities } from "./entitiesRepo.js";
 import { generateGeminiText } from "./geminiClient.js";
 import { getChapter } from "./versesRepo.js";
 import { getPool } from "./pool.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ASK_PROMPT_TEMPLATE = readFileSync(join(__dirname, "../prompts/ask.txt"), "utf-8").trimEnd();
 
 const ENTITY_STOPWORDS = new Set([
   "about", "after", "also", "been", "being", "from", "have", "into", "that", "their",
@@ -185,41 +191,27 @@ export async function retrieveFoundEntities({ question, activeEntityIds = [], kE
 }
 
 export function buildAskPrompt({ question, translation, book, chapter, verse, chapterVerses = [], foundEntities = [] } = {}) {
-  const location = `${translation} ${book} ${chapter}:${verse}`;
-
-  const lines = [
-    "You are a Bible study assistant.",
-    "Answer the user's question as directly and helpfully as possible.",
-    "The reader location and chapter text are context, not a hard constraint.",
-    "The user may ask about any biblical topic beyond the selected passage.",
-    "Use your broader biblical knowledge when needed.",
-    "Do not default to saying context is missing when you can answer.",
-    "Treat spelling variants like Caim/Cain as likely equivalents when appropriate.",
-    "If uncertain, give your best effort and note uncertainty briefly.",
-    "Output plain text only.",
-    "Do not use Markdown formatting (no headings, bullet lists, numbered lists, bold, italics, or code fences).",
-    "Do not output JSON.",
-    "",
-    "[READER_LOCATION]",
-    location,
-  ];
-
-  if (chapterVerses.length) {
-    lines.push("", `[CHAPTER_TEXT]`, `${book} ${chapter} (${translation})`);
-    for (const v of chapterVerses) {
-      lines.push(`${v.verse} ${v.text}`);
-    }
-  }
+  const chapterTextBlock = chapterVerses.length
+    ? `[CHAPTER_TEXT]\n${book} ${chapter} (${translation})\n${chapterVerses.map((v) => `${v.verse} ${v.text}`).join("\n")}`
+    : "";
 
   const entityNames = Array.isArray(foundEntities)
     ? foundEntities.slice(0, 5).map((e) => `${e.name} (${e.type})`).filter(Boolean)
     : [];
-  if (entityNames.length) {
-    lines.push("", "[CONTEXT_ENTITIES]", entityNames.join(", "));
-  }
+  const contextEntitiesBlock = entityNames.length
+    ? `[CONTEXT_ENTITIES]\n${entityNames.join(", ")}`
+    : "";
 
-  lines.push("", "[QUESTION]", question);
-  return lines.join("\n");
+  return ASK_PROMPT_TEMPLATE
+    .replace("{{TRANSLATION}}", translation)
+    .replace("{{BOOK}}", book)
+    .replace("{{CHAPTER}}", chapter)
+    .replace("{{VERSE}}", verse)
+    .replace("{{CHAPTER_TEXT_BLOCK}}", chapterTextBlock)
+    .replace("{{CONTEXT_ENTITIES_BLOCK}}", contextEntitiesBlock)
+    .replace("{{QUESTION}}", question)
+    .replace(/\n{3,}/g, "\n\n") // collapse extra blank lines from empty optional blocks
+    .trimEnd();
 }
 
 export async function askQuestion({
