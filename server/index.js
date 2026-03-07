@@ -6,6 +6,7 @@ import path from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import { closePool } from "./services/pool.js";
 import searchRoutes from "./routes/search.js";
 import askRoutes from "./routes/ask.js";
@@ -19,7 +20,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "0.0.0.0";
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, trustProxy: true });
+
+await app.register(rateLimit, {
+  // Global default — generous enough to never affect navigation/reading routes.
+  max: 300,
+  timeWindow: "1 minute",
+  errorResponseBuilder: (_req, context) => ({
+    error: `Too many requests. Please try again in ${context.after}.`,
+    code: "RATE_LIMIT_EXCEEDED",
+    retryable: true,
+  }),
+});
 
 await app.register(cors);
 await app.register(searchRoutes);
