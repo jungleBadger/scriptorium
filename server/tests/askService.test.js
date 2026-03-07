@@ -22,15 +22,13 @@ describe("buildAskPrompt", () => {
 
   it("includes the bible version and passage reference", () => {
     const prompt = buildAskPrompt(base);
-    expect(prompt).toContain("[BIBLE_VERSION]");
-    expect(prompt).toContain("WEBU");
-    expect(prompt).toContain("[PASSAGE]");
+    expect(prompt).toContain("BIBLE_VERSION: WEBU");
     expect(prompt).toContain("EXO 3:1");
   });
 
   it("includes the question", () => {
     const prompt = buildAskPrompt(base);
-    expect(prompt).toContain("[QUESTION]");
+    expect(prompt).toContain("[USER QUESTION]");
     expect(prompt).toContain("Who is Moses?");
   });
 
@@ -81,7 +79,7 @@ describe("buildAskPrompt", () => {
 
   it("includes system instructions at the top", () => {
     const prompt = buildAskPrompt(base);
-    expect(prompt).toContain("You are a Bible study assistant.");
-    expect(prompt).toContain("Output plain text only.");
+    expect(prompt).toContain("You are a scholarly Bible study assistant.");
+    expect(prompt).toContain("PLAIN TEXT ONLY");
   });
 });
