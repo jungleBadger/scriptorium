@@ -33,7 +33,7 @@ const progressPct = computed(() => {
   const progress = Number.isFinite(tts.state.progress) ? tts.state.progress : 0;
   return Math.max(0, Math.min(100, progress * 100));
 });
-const progressStyle = computed(() => ({ width: `${progressPct.value.toFixed(3)}%` }));
+const progressStyle = computed(() => ({ transform: `scaleX(${(progressPct.value / 100).toFixed(4)})` }));
 const speedLabel = computed(() => `${String(Number(tts.state.speed || 1).toFixed(2)).replace(/\.00$/, '')}x`);
 
 function onClose() {
