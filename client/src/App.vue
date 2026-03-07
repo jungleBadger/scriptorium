@@ -237,6 +237,9 @@ function pushToStack(view) {
 // ── Stale-request guards ───────────────────────────────────────────────────
 let chapterRequestToken = 0;
 let chapterContextToken = 0;
+let chapterAbortController = null;
+let chapterContextAbortController = null;
+let askAbortController = null;
 
 // ── Position memory ────────────────────────────────────────────────────────
 const chapterVerseMemory = new Map();
@@ -519,6 +522,8 @@ async function initializeReader() {
 
 async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) {
   tts.stop();
+  if (chapterAbortController) chapterAbortController.abort();
+  chapterAbortController = new AbortController();
   const requestToken = ++chapterRequestToken;
 
   // Optimistically update location so the sticky header reflects the destination
@@ -537,7 +542,7 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
   void loadChapterContextView(nextBookId, nextChapter);
 
   try {
-    const payload = await getChapter(nextBookId, nextChapter, translation.value);
+    const payload = await getChapter(nextBookId, nextChapter, translation.value, { signal: chapterAbortController.signal });
     if (requestToken !== chapterRequestToken) return;
 
     chapterData.value = payload;
@@ -560,6 +565,7 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     }
 
   } catch (err) {
+    if (err?.name === "AbortError") return;
     if (requestToken !== chapterRequestToken) return;
     // Revert the optimistic location update on failure.
     bookId.value = prevBookId;
@@ -575,6 +581,8 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
 
 // ── Panel navigation ───────────────────────────────────────────────────────
 async function loadChapterContextView(nextBookId, nextChapter) {
+  if (chapterContextAbortController) chapterContextAbortController.abort();
+  chapterContextAbortController = new AbortController();
   const token = ++chapterContextToken;
   const anchor = {
     translation: translation.value,
@@ -594,11 +602,12 @@ async function loadChapterContextView(nextBookId, nextChapter) {
   panelStack.value = [view];
 
   try {
-    const payload = await getChapterContext(nextBookId, nextChapter, translation.value);
+    const payload = await getChapterContext(nextBookId, nextChapter, translation.value, { signal: chapterContextAbortController.signal });
     if (token !== chapterContextToken) return;
     view.status = "ready";
     view.data = payload;
   } catch (err) {
+    if (err?.name === "AbortError") return;
     if (token !== chapterContextToken) return;
     view.status = "error";
     view.error = getApiErrorMessage(err, { context: "chapterContext" });
@@ -723,6 +732,8 @@ async function runAsk(query, anchor) {
     data: null,
     query,
   });
+  if (askAbortController) askAbortController.abort();
+  askAbortController = new AbortController();
   pushToStack(view);
 
   try {
@@ -735,12 +746,14 @@ async function runAsk(query, anchor) {
       active_entity_ids: getActiveEntityIdsForAsk(),
       k_entities: 12,
       k_passages: safePassages,
+      signal: askAbortController.signal,
     });
 
     view.status = "ready";
     view.data = payload;
     return true;
   } catch (err) {
+    if (err?.name === "AbortError") return false;
     const message = getApiErrorMessage(err, { context: "ask" });
     view.status = "error";
     view.error = message;
