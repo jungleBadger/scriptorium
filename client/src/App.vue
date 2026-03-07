@@ -241,6 +241,11 @@ let chapterAbortController = null;
 let chapterContextAbortController = null;
 let askAbortController = null;
 
+// ── Chapter look-ahead prefetch ────────────────────────────────────────────
+const prefetchedChapter = ref(null); // { bookId, chapter, data } — next-chapter cache
+let prefetchAbortController = null;
+let prefetchTimer = null;
+
 // ── Position memory ────────────────────────────────────────────────────────
 const chapterVerseMemory = new Map();
 const bookPositionMemory = new Map();
@@ -578,6 +583,42 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     if (requestToken === chapterRequestToken) readerLoading.value = false;
   }
 }
+
+function cancelPrefetch() {
+  if (prefetchTimer !== null) { clearTimeout(prefetchTimer); prefetchTimer = null; }
+  if (prefetchAbortController) { prefetchAbortController.abort(); prefetchAbortController = null; }
+}
+
+function schedulePrefetch() {
+  cancelPrefetch();
+  const nav = chapterData.value?.next;
+  if (!nav) return; // no next chapter (last chapter of last book)
+  if (tts.state.playing) return; // skip while audio is already under load
+  const targetBookId = nav.book_id;
+  const targetChapter = nav.chapter ?? 1;
+  prefetchTimer = setTimeout(async () => {
+    prefetchTimer = null;
+    prefetchAbortController = new AbortController();
+    try {
+      const data = await getChapter(targetBookId, targetChapter, translation.value, { signal: prefetchAbortController.signal });
+      prefetchAbortController = null;
+      prefetchedChapter.value = { bookId: targetBookId, chapter: targetChapter, data };
+    } catch {
+      prefetchAbortController = null;
+    }
+  }, 500);
+}
+
+// External trigger: cancel prefetch when a new chapter load begins; schedule
+// one after a successful load finishes. loadChapter() itself is unchanged.
+watch(readerLoading, (loading) => {
+  if (loading) {
+    cancelPrefetch();
+    prefetchedChapter.value = null;
+  } else if (!readerError.value) {
+    schedulePrefetch();
+  }
+});
 
 // ── Panel navigation ───────────────────────────────────────────────────────
 async function loadChapterContextView(nextBookId, nextChapter) {
@@ -978,6 +1019,34 @@ async function onNavigate(direction) {
   const targetChapter = nav.chapter ?? (direction === "prev" ? targetBook.chapters : 1);
   const targetVerse =
     direction === "next" ? 1 : getRememberedVerse(nav.book_id, targetChapter) ?? 1;
+
+  // Cache-hit path: consume prefetched data instantly, skip the API round-trip.
+  if (direction === "next") {
+    const cached = prefetchedChapter.value;
+    if (cached && cached.bookId === nav.book_id && cached.chapter === targetChapter) {
+      cancelPrefetch();
+      prefetchedChapter.value = null;
+      tts.stop();
+      if (chapterAbortController) chapterAbortController.abort();
+      chapterRequestToken++; // invalidate any in-flight request
+      bookId.value = nav.book_id;
+      chapter.value = targetChapter;
+      readerError.value = null;
+      selectedEntityId.value = null;
+      readerUx.setSelectionNone();
+      readerUx.setUiState({ chromeHidden: false });
+      void loadChapterContextView(nav.book_id, targetChapter);
+      chapterData.value = cached.data;
+      const verses = cached.data.verses || [];
+      const firstVerse = verses[0]?.verse ?? null;
+      const nextActiveVerse = verses.some((v) => v.verse === targetVerse) ? targetVerse : firstVerse;
+      activeVerse.value = nextActiveVerse;
+      if (nextActiveVerse != null) rememberPosition(nav.book_id, targetChapter, nextActiveVerse);
+      schedulePrefetch(); // begin warming the chapter after this one
+      return;
+    }
+  }
+
   await loadChapter(nav.book_id, targetChapter, { focusVerse: targetVerse });
 }
 
