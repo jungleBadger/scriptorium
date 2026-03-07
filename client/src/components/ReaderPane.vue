@@ -512,6 +512,7 @@ onUnmounted(() => {
       :voice-id="voiceId"
       :is-exploring="isExploring"
       :explore-error="exploreError"
+      :loading="loading"
       :chrome-hidden="chromeHidden"
       :explore-enabled="exploreEnabled"
       :explore-disabled-reason="exploreDisabledReason"
@@ -538,6 +539,7 @@ onUnmounted(() => {
       @scroll.passive="onReaderScroll"
     >
       <ReaderHeader
+        v-if="!loading || verses.length > 0"
         :book-name="bookName"
         :chapter="chapter"
         :has-prev="hasPrev"
