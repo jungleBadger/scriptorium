@@ -447,6 +447,12 @@ watch([readerSettings, translation], () => {
 
 watch(translation, (trans) => { locale.value = translationLanguage(trans); }, { immediate: true });
 
+watch(translation, (trans) => {
+  document.title = translationLanguage(trans) === 'pt'
+    ? 'Scriptorium \u2013 Explore e Estude as Escrituras'
+    : 'Scriptorium \u2013 Explore and Study Scripture';
+}, { immediate: true });
+
 watch(translation, async (next, prev) => {
   if (next === prev) return;
   // Auto-select voice matching new language, unless current voice already matches.

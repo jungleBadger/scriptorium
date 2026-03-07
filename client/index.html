@@ -4,11 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Scriptorium – explore and study scripture verse by verse." />
+    <meta name="description" lang="pt-BR" content="Scriptorium – explore e estude as escrituras versículo por versículo." />
     <meta name="theme-color" content="#1e1612" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/icon.svg" sizes="any" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <title>Scriptorium</title>
+    <script>
+      try {
+        var s = JSON.parse(localStorage.getItem('scriptorium-reader-settings') || '{}');
+        document.title = (s.translation === 'PT1911' || s.translation === 'ARC')
+          ? 'Scriptorium \u2013 Explore e Estude as Escrituras'
+          : 'Scriptorium \u2013 Explore and Study Scripture';
+      } catch {}
+    </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-NL2HZ54M3W"></script>
     <script>
