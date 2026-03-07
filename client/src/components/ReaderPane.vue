@@ -88,15 +88,26 @@ let longPressConsumed = false;
 let mobileHintTimeout = null;
 const showMobileExtendHint = ref(false);
 
+// Key uses props.bookId which is always the canonical API code (e.g. "GEN", "EXO").
+// It is never locale-derived — PT-BR display names are computed separately and
+// never flow back into bookId. Safe to use as a stable, translation-agnostic key.
+function makeBookmarkKey(verseNumber) {
+  return `${props.bookId}:${props.chapter}:${verseNumber}`;
+}
+
 function isBookmarked(verseNumber) {
-  return bookmarkedVerses.value.has(verseNumber);
+  return bookmarkedVerses.value.has(makeBookmarkKey(verseNumber));
 }
 
 function toggleBookmark(verseNumber) {
+  const key = makeBookmarkKey(verseNumber);
   const next = new Set(bookmarkedVerses.value);
-  if (next.has(verseNumber)) next.delete(verseNumber);
-  else next.add(verseNumber);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
   bookmarkedVerses.value = next;
+  try {
+    localStorage.setItem("bookmarkedVerses", JSON.stringify([...next]));
+  } catch {}
 }
 
 function normalizeTerm(term) {
@@ -482,6 +493,11 @@ watch(
 );
 
 onMounted(() => {
+  try {
+    const saved = localStorage.getItem("bookmarkedVerses");
+    if (saved) bookmarkedVerses.value = new Set(JSON.parse(saved));
+  } catch {}
+
   if (!import.meta.env.DEV) return;
   const root = readerPaneRef.value;
   if (!(root instanceof HTMLElement)) return;
