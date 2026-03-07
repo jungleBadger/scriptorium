@@ -2074,6 +2074,31 @@ body {
   white-space: pre-wrap;
 }
 
+.ask-query-bubble {
+  background: var(--chip-bg);
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.ask-query-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.ask-query-text {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
 .ask-entity-refs {
   margin-top: 0.35rem;
 }

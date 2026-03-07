@@ -2,6 +2,85 @@
 
 Converts Bible sources (USFM or USFX format) into structured data in Postgres and vector embeddings via pgvector. Supports multiple translations; chunks are scoped per translation so languages are never mixed.
 
+---
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Local Setup](#local-setup)
+- [Quick Start](#quick-start)
+- [Pipeline Steps](#pipeline-steps)
+- [Entity Enrichment](#entity-enrichment)
+- [Chapter Explanation Enrichment](#chapter-explanation-enrichment)
+- [Environment Variables](#environment-variables)
+- [Verification](#verification)
+- [Data Sources & Licensing](#data-sources--licensing)
+
+---
+
+## Prerequisites
+
+- **Node.js** v18+ (ESM support required)
+- **Docker** + **Docker Compose** (for Postgres with pgvector)
+- **Ollama** (for chapter explanation enrichment — optional)
+- Source data files placed in `ingest/data/` (see [Data Sources & Licensing](#data-sources--licensing) for where to obtain them)
+
+---
+
+## Local Setup
+
+### 1. Start the database
+
+```bash
+docker compose up -d
+```
+
+This spins up Postgres with the pgvector extension. Connection defaults are `localhost:5432`, database `bible`, user `bible`, password `bible`.
+
+### 2. Run migrations
+
+```bash
+psql -h localhost -U bible -d bible -f ingest/sql/001_schema.sql
+psql -h localhost -U bible -d bible -f ingest/sql/002_verses.sql
+psql -h localhost -U bible -d bible -f ingest/sql/003_embeddings.sql
+psql -h localhost -U bible -d bible -f ingest/sql/004_entities.sql
+psql -h localhost -U bible -d bible -f ingest/sql/005_entities_geo_indexes.sql
+psql -h localhost -U bible -d bible -f ingest/sql/007_openbible_extended.sql
+psql -h localhost -U bible -d bible -f ingest/sql/008_chapter_explanations.sql
+```
+
+### 3. Place source data files
+
+Download the required files (see [Data Sources & Licensing](#data-sources--licensing)) and place them at:
+
+```
+ingest/data/
+├── engwebu_usfm.zip                  # World English Bible Updated (USFM)
+├── por-almeida.usfx.xml              # Almeida 1911 Portuguese Bible (USFX)
+├── HitchcocksBibleNamesDictionary.csv
+├── ancient.jsonl
+├── modern.jsonl
+├── geometry.jsonl
+├── source.jsonl
+└── image.jsonl
+```
+
+### 4. Install dependencies
+
+```bash
+npm install
+```
+
+### 5. (Optional) Install Ollama for chapter explanations
+
+Download from [ollama.ai](https://ollama.ai) and pull a model:
+
+```bash
+ollama pull qwen3:8b
+```
+
+---
+
 ## Quick Start
 
 ```bash
@@ -24,6 +103,8 @@ npm run ingest:destroy
 
 `npm run ingest:rebuild` runs the default WEBU ingest path (`001 -> 003 -> 004 -> 005`).
 Use `001_usfm_to_verses.mjs` / `002_usfx_to_verses.mjs` directly when loading other translations.
+
+---
 
 ## Pipeline Steps
 
@@ -67,16 +148,18 @@ node ingest/scripts/005_embed_chunks.mjs
 
 Reads chunks from Postgres, generates embeddings using `paraphrase-multilingual-MiniLM-L12-v2`, and writes them back to the `chunks.embedding` column (pgvector `vector(384)` with HNSW cosine index). Migration: `ingest/sql/003_embeddings.sql`.
 
+---
+
 ## Entity Enrichment
 
 A separate, independently-runnable pipeline that populates an entity knowledge layer (places, people) with translation-independent data. Entity ingestors are idempotent and can be re-run at any time without affecting verse data.
 
 ### Schema
 
-- **`entities`** - People, places, and other named biblical items with coordinates, types, and extensible JSONB metadata
-- **`entity_aliases`** - Translation-independent name variants (e.g., "Abana" / "Abanah")
-- **`entity_verses`** - Verse anchoring by `(book_id, chapter, verse)`, not tied to any specific translation
-- **`openbible_*`** - Normalized OpenBible records for modern locations, geometry, sources, and images (plus link tables)
+- **`entities`** — People, places, and other named biblical items with coordinates, types, and extensible JSONB metadata
+- **`entity_aliases`** — Translation-independent name variants (e.g., "Abana" / "Abanah")
+- **`entity_verses`** — Verse anchoring by `(book_id, chapter, verse)`, not tied to any specific translation
+- **`openbible_*`** — Normalized OpenBible records for modern locations, geometry, sources, and images (plus link tables)
 
 Migrations:
 - `ingest/sql/004_entities.sql` (entity tables)
@@ -85,6 +168,7 @@ Migrations:
 - `ingest/sql/008_chapter_explanations.sql` (chapter-level explanation outputs)
 
 Apply manually if needed:
+
 ```bash
 psql -h localhost -U bible -d bible -f ingest/sql/005_entities_geo_indexes.sql
 psql -h localhost -U bible -d bible -f ingest/sql/007_openbible_extended.sql
@@ -97,7 +181,7 @@ psql -h localhost -U bible -d bible -f ingest/sql/008_chapter_explanations.sql
 npm run ingest:entities:openbible
 ```
 
-Parses `ingest/data/ancient.jsonl` (~1,342 places) from the [OpenBible Geodata](https://github.com/openbibleinfo/Bible-Geocoding-Data) project. Extracts coordinates, place types, translation name variants (as aliases), verse references, and linked data / media into JSONB metadata.
+Parses `ingest/data/ancient.jsonl` (~1,342 places) from the [OpenBible Geocoding Data](https://github.com/openbibleinfo/Bible-Geocoding-Data) project. Extracts coordinates, place types, translation name variants (as aliases), verse references, and linked data / media into JSONB metadata.
 
 ### 6. Load OpenBible Geodata (Full normalized bundle)
 
@@ -106,6 +190,7 @@ npm run ingest:entities:openbible:full
 ```
 
 Consumes all OpenBible JSONL datasets and writes deterministic, normalized records plus canonical entity links:
+
 - `ingest/data/source.jsonl`
 - `ingest/data/image.jsonl`
 - `ingest/data/geometry.jsonl`
@@ -150,6 +235,8 @@ Importer resolution order is:
 3. unique `canonical_name`
 4. legacy `id` (local DB only)
 
+---
+
 ## Chapter Explanation Enrichment
 
 Generates one chapter-level explanation per chapter using local Ollama and stores results in `chapter_explanations`.
@@ -170,9 +257,17 @@ node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --translation WEB
 node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs --translation PT1911 --limit 20
 ```
 
-Prompt template:
-- `ingest/prompts/chapter_explainer_prompt.txt`
-- `ingest/prompts/chapter_explainer_prompt_8b.txt` (used as default simple prompt in `--auto-model` mode)
+Prompt templates (user prompts):
+- `ingest/prompts/chapter_explainer_prompt.txt` — full prompt (EN)
+- `ingest/prompts/chapter_explainer_prompt_8b.txt` — compact prompt for 8b models (EN)
+- `ingest/prompts/chapter_explainer_prompt_pt-br.txt` — full prompt (PT-BR)
+- `ingest/prompts/chapter_explainer_prompt_8b_pt-br.txt` — compact prompt for 8b models (PT-BR)
+
+System prompts:
+- `ingest/prompts/system_prompt_en.txt`
+- `ingest/prompts/system_prompt_pt-br.txt`
+
+The script auto-selects pt-br user and system prompts when `--translation` starts with `PT` (e.g. `PT1911`). No env vars needed. Manual overrides via `--prompt`, `--prompt-simple`, `--prompt-complex` take precedence.
 
 Useful options:
 
@@ -195,6 +290,8 @@ Validation and retry behavior:
 - Existing retries remain in place for invalid JSON, truncation, word-count bounds, and grounding.
 - `_meta` in `output_json` includes retry telemetry including `meta_talk_retry`, `meta_talk_ok`, and optional `meta_talk_hits`.
 
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -215,9 +312,47 @@ Validation and retry behavior:
 | `CHAPTER_TOP_P` | `0.75` | Top-p used by chapter explainer pipeline |
 | `CHAPTER_NUM_PREDICT` | `900` | Default max generated tokens |
 | `CHAPTER_WORD_TARGET` | `220` | Prompt target word count |
-| `CHAPTER_PROMPT` | `ingest/prompts/chapter_explainer_prompt.txt` | Default prompt path |
-| `CHAPTER_PROMPT_SIMPLE` | `ingest/prompts/chapter_explainer_prompt_8b.txt` | Simple prompt path for `--auto-model` |
-| `CHAPTER_PROMPT_COMPLEX` | `CHAPTER_PROMPT` | Complex prompt path for `--auto-model` |
+| `CHAPTER_PROMPT` | language-aware (see below) | Default prompt path |
+| `CHAPTER_PROMPT_SIMPLE` | language-aware (see below) | Simple prompt path for `--auto-model` |
+| `CHAPTER_PROMPT_COMPLEX` | language-aware (see below) | Complex prompt path for `--auto-model` |
+
+`CHAPTER_PROMPT*` defaults are resolved at runtime based on `--translation`: translations starting with `PT` use the `*_pt-br.txt` variants automatically. Explicit env var values always take precedence.
+
+---
+
+## Supabase Migration
+
+`ingest/scripts/migrate_to_supabase.sh` dumps data from the local Postgres DB and restores it to Supabase. Tables and indexes must already exist in the target (run SQL migrations first).
+
+### Full load (first-time)
+
+```bash
+SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+```
+
+> **Warning:** Full-load mode assumes target tables are **empty**. Restoring over existing rows will crash (`COPY` has no conflict handling). Verify target state before running.
+
+### Delta mode (incremental push)
+
+Use `DELTA=1` to push only new rows for specific tables without touching existing data:
+
+```bash
+DELTA=1 TABLES=chapter_explanations SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+```
+
+- `DELTA=1` switches from `COPY` to `INSERT … ON CONFLICT DO NOTHING` — existing rows in the target are left untouched (target wins).
+- `TABLES=` is **required** with `DELTA=1`. Omitting it is a hard error: tables with no natural unique constraint (beyond a serial id) could silently accumulate duplicate rows if local and remote ids have drifted.
+- Use `TABLES=` as a comma-separated list to scope multiple tables in one run: `TABLES=chapter_explanations,entity_verses`.
+
+### Other options
+
+| Variable | Default | Description |
+|---|---|---|
+| `DUMP_FILE` | `/tmp/scriptorium_data.sql` | Path for the intermediate dump file |
+| `SKIP_DUMP` | `0` | Set to `1` to reuse an existing dump file and skip the pg_dump step |
+| `LOCAL_PASSWORD` | `bible` | Local Postgres password |
+
+---
 
 ## Verification
 
@@ -273,20 +408,106 @@ npm run search "In the beginning God created the heavens and the earth"
 node scripts/search_cli.mjs "No principio criou Deus" --translations=PT1911
 ```
 
-## Data Sources
+---
 
-| Code | Language | Format | Source | File |
-|---|---|---|---|---|
-| `WEBU` | English | USFM | [ebible.org](https://ebible.org/) | `ingest/data/engwebu_usfm.zip` |
-| `PT1911` | Portuguese | USFX | Almeida Revista e Corrigida (1911) | `ingest/data/por-almeida.usfx.xml` |
+## Data Sources & Licensing
 
-### Entity Data
+This pipeline depends on several open and public domain datasets. You must download these yourself and place them in `ingest/data/` before running. None of these files are bundled with this repository.
 
-| Source | Description | File |
-|---|---|---|
-| OpenBible Geodata (ancient) | ~1,342 ancient places with coordinates, verse refs, and media | `ingest/data/ancient.jsonl` |
-| OpenBible Geodata (modern) | ~1,596 modern places, coordinate provenance, and associations | `ingest/data/modern.jsonl` |
-| OpenBible Geodata (geometry) | ~588 geometry records used by modern/ancient mappings | `ingest/data/geometry.jsonl` |
-| OpenBible Geodata (sources) | ~442 bibliographic/source records | `ingest/data/source.jsonl` |
-| OpenBible Geodata (images) | ~2,424 image attribution and asset records | `ingest/data/image.jsonl` |
-| Hitchcock's Names | ~2,623 biblical names with etymological meanings | `ingest/data/HitchcocksBibleNamesDictionary.csv` |
+---
+
+### Bible Translations
+
+#### World English Bible Updated (WEBU) — `engwebu_usfm.zip`
+
+| | |
+|---|---|
+| **Translation** | World English Bible Updated (WEBU) |
+| **Language** | English |
+| **Format** | USFM (Paratext format, one file per book) |
+| **License** | **Public Domain** — no copyright restrictions |
+| **Download** | https://ebible.org/Scriptures/engwebu_usfm.zip |
+| **Project page** | https://ebible.org/engwebu/ |
+| **Publisher** | [eBible.org](https://ebible.org) — Michael Paul Johnson |
+
+The World English Bible is a modern English translation in the public domain. You may copy, distribute, publish, or use it freely without restriction. The name "World English Bible" is a trademark of eBible.org; if you modify the text, you may not call the result the World English Bible. The USFM source files for all eBible translations are listed at https://ebible.org/Scriptures/.
+
+---
+
+#### Almeida Revista e Corrigida 1911 (PT1911) — `por-almeida.usfx.xml`
+
+| | |
+|---|---|
+| **Translation** | Bíblia de João Ferreira de Almeida — Revista e Corrigida (1911) |
+| **Language** | Portuguese |
+| **Format** | USFX (XML derivative of USFM) |
+| **License** | **Public Domain** |
+| **Download** | https://github.com/seven1m/open-bibles/raw/master/por-almeida.usfx.xml |
+| **Project page** | https://github.com/seven1m/open-bibles |
+| **Original translator** | João Ferreira de Almeida (1628–1691) |
+
+The Almeida translation is one of the oldest and most widely used Portuguese Bible translations. The 1911 revision is in the public domain. The USFX file is hosted in the [seven1m/open-bibles](https://github.com/seven1m/open-bibles) repository, which collects public domain and freely licensed Bible translations in standard XML formats.
+
+---
+
+### Entity & Geographic Data
+
+#### OpenBible Bible Geocoding Data — `ancient.jsonl`, `modern.jsonl`, `geometry.jsonl`, `source.jsonl`, `image.jsonl`
+
+| | |
+|---|---|
+| **Dataset** | Bible Geocoding Data |
+| **Publisher** | [OpenBible.info](https://www.openbible.info/geo/) — Aaron Meurer |
+| **License** | **Creative Commons Attribution 4.0 (CC BY 4.0)**; OpenStreetMap geometry data is **ODbL 1.0** |
+| **Download** | https://github.com/openbibleinfo/Bible-Geocoding-Data |
+| **Project page** | https://www.openbible.info/geo/ |
+| **Thumbnail images** | https://a.openbible.info/geo/thumbnails.zip (~180 MB) |
+
+A comprehensive geographic dataset identifying the possible modern locations of every place mentioned in the Protestant Bible, with data-backed confidence levels and links to open data. Contains:
+
+| File | Contents |
+|---|---|
+| `ancient.jsonl` | ~1,342 ancient biblical places with coordinates, verse references, name variants, and media |
+| `modern.jsonl` | ~1,596 modern locations with coordinate provenance and associations to ancient places |
+| `geometry.jsonl` | ~588 geometry metadata records for rivers, regions, and other non-point data |
+| `source.jsonl` | ~442 bibliographic source records cited for identifications |
+| `image.jsonl` | ~2,424 image attribution and asset records |
+
+Each file is in **JSON Lines format** (one complete JSON object per line). Attribution is required when using or redistributing this data under CC BY 4.0 — please credit **OpenBible.info**.
+
+---
+
+#### Hitchcock's Bible Names Dictionary — `HitchcocksBibleNamesDictionary.csv`
+
+| | |
+|---|---|
+| **Work** | Hitchcock's Bible Names Dictionary |
+| **Author** | Roswell D. Hitchcock (1817–1887), Washburn Professor of Church History, Union Theological Seminary, New York |
+| **Originally published** | c. 1869, as part of *Hitchcock's New and Complete Analysis of the Holy Bible* |
+| **License** | **Public Domain** |
+| **Primary source** | [Christian Classics Ethereal Library (CCEL)](https://www.ccel.org/ccel/hitchcock/bible_names.html) |
+| **CCEL PDF** | https://www.ccel.org/ccel/h/hitchcock/bible_names/cache/bible_names.pdf |
+| **CrossWire / SWORD** | http://www.crosswire.org/sword/ |
+
+Contains over 2,500 Hebrew proper names from the Bible with their etymological meanings. The CSV used by this pipeline is derived from the CCEL/CrossWire public domain text. No attribution is legally required, but crediting Roswell D. Hitchcock and CCEL is appreciated.
+
+---
+
+### Attribution Summary
+
+If you publish a project or application built on this pipeline, the following credits are recommended:
+
+```
+Bible translations:
+  - World English Bible Updated (WEBU) — Public Domain — ebible.org
+  - Almeida Revista e Corrigida 1911 — Public Domain — github.com/seven1m/open-bibles
+
+Geographic data:
+  - Bible Geocoding Data by OpenBible.info — CC BY 4.0 — openbible.info/geo
+
+Name data:
+  - Hitchcock's Bible Names Dictionary by Roswell D. Hitchcock (c. 1869) — Public Domain
+    via Christian Classics Ethereal Library — ccel.org
+```
+
+CC BY 4.0 attribution for OpenBible geodata is a **legal requirement**, not optional. The other sources are public domain but crediting them is good practice.

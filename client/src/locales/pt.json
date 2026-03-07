@@ -98,7 +98,14 @@
       "summary": "Resumo",
       "themes": "Temas",
       "entities": "Entidades",
-      "crossRefs": "Refer\u00eancias"
+      "crossRefs": "Referências"
+    },
+    "prompts": {
+      "summary": "Faça um resumo conciso de {ref} em contexto.",
+      "themes": "Quais são os principais temas em {ref}?",
+      "entities": "Identifique as pessoas e lugares principais em {ref}.",
+      "crossRefs": "Mostre referências cruzadas relevantes para {ref} e explique as conexões.",
+      "default": "Explique {ref} em contexto."
     }
   },
   "verseActions": {
@@ -133,6 +140,7 @@
     },
     "ask": {
       "exploring": "Explorando com IA...",
+      "youAsked": "Você perguntou:",
       "answer": "Resposta",
       "noAnswer": "Nenhum texto de resposta retornado.",
       "noResponse": "Nenhuma resposta ainda.",
@@ -217,7 +225,8 @@
   },
   "errors": {
     "exploreUnavailable": "Explorar est\u00e1 temporariamente indispon\u00edvel.",
-    "ttsUnavailable": "Leitura em voz alta est\u00e1 temporariamente indispon\u00edvel."
+    "ttsUnavailable": "Leitura em voz alta est\u00e1 temporariamente indispon\u00edvel.",
+    "exploreFailedRetry": "N\u00e3o foi poss\u00edvel explorar esta passagem agora. Tente novamente."
   },
   "tts": {
     "miniPlayer": {

@@ -40,15 +40,30 @@ const DEFAULT_PROMPT_PATH_SIMPLE =
     path.join("ingest", "prompts", "chapter_explainer_prompt_8b.txt");
 const DEFAULT_PROMPT_PATH_COMPLEX = process.env.CHAPTER_PROMPT_COMPLEX || DEFAULT_PROMPT_PATH;
 
-const SYSTEM_PROMPT = [
-    "You are a biblical chapter explainer.",
-    "Base the explanation ONLY on the verses included in the user message.",
-    "Do NOT introduce events or claims not explicitly supported by those verses.",
-    "If the chapter is list-heavy (genealogies/descendants, borders/cities/inheritance), summarize the repeated listing and explain what is being listed.",
-    "Do NOT mention payload, JSON, schema, arrays, objects, fields, keys, input/output, or how the input is organized.",
-    "If uncertain, prefer describing explicitly listed details over guessing.",
-    "Output valid JSON only.",
-].join(" ");
+const DEFAULT_SYSTEM_PROMPT_PATH_EN = path.join("ingest", "prompts", "system_prompt_en.txt");
+const DEFAULT_SYSTEM_PROMPT_PATH_PT_BR = path.join("ingest", "prompts", "system_prompt_pt-br.txt");
+
+function loadSystemPromptFile(filePath) {
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`System prompt file not found: ${filePath}`);
+    }
+    return fs.readFileSync(filePath, "utf8")
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join(" ");
+}
+
+const SYSTEM_PROMPT_EN = loadSystemPromptFile(DEFAULT_SYSTEM_PROMPT_PATH_EN);
+const SYSTEM_PROMPT_PT_BR = loadSystemPromptFile(DEFAULT_SYSTEM_PROMPT_PATH_PT_BR);
+
+function isPortugueseTranslation(translation) {
+    return /^PT/i.test(String(translation || ""));
+}
+
+function getSystemPrompt(translation) {
+    return isPortugueseTranslation(translation) ? SYSTEM_PROMPT_PT_BR : SYSTEM_PROMPT_EN;
+}
 
 const CANONICAL_BOOK_IDS = BOOK_ORDER.map((b) => b.book_id);
 
@@ -679,14 +694,14 @@ function summarizeKeys(obj) {
     return `top-level keys=${JSON.stringify(top)}; message keys=${JSON.stringify(msgKeys)}`;
 }
 
-async function callOllama({ host, model, userPrompt, temperature, topP, numPredict }) {
+async function callOllama({ host, model, systemPrompt, userPrompt, temperature, topP, numPredict }) {
     const url = `${host}/api/chat`;
 
     // 1) First try: strict schema (your current approach)
     const bodySchema = {
         model,
         messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
         ],
         format: CHAPTER_OUTPUT_SCHEMA,
@@ -789,7 +804,7 @@ function coerceChapterOutputFromRaw(raw) {
         .trim();
 
     // Try extracting quoted chapter_explanation value from malformed JSON-ish text.
-    const keyMatch = text.match(/"chapter_explanation"\s*:\s*"([\s\S]*?)"\s*(?:,|\}|$)/i);
+    const keyMatch = text.match(/"chapter_explanation"\s*:\s*"([\s\S]*?)"\s*(?:,|}|$)/i);
     if (keyMatch && keyMatch[1]) {
         const extracted = keyMatch[1]
             .replace(/\\"/g, "\"")
@@ -871,9 +886,7 @@ function isLikelyTruncated(explanation) {
     if (/\(v\.\s*$/i.test(text) || /\($/.test(text)) return true;
 
     const endsWithSentencePunctuation = /[.!?](?:["')\]]+)?$/.test(text);
-    if (!endsWithSentencePunctuation) return true;
-
-    return false;
+    return !endsWithSentencePunctuation;
 }
 
 function normalizeForGrounding(value) {
@@ -968,7 +981,7 @@ function countVerseRefBlocks(text) {
 
 function extractFinalVerseRefBlock(text) {
     // Accept either "... (v. 1-3, v. 24-28)" or "... (v. 1-3, v. 24-28)."
-    return String(text || "").trim().match(/(\(\s*v\.\s*[^)]+\))(?:\.)?\s*$/i)?.[1] || null;
+    return String(text || "").trim().match(/(\(\s*v\.\s*[^)]+\))\.?\s*$/i)?.[1] || null;
 }
 
 function countVerseRefsInBlock(blockText) {
@@ -980,7 +993,7 @@ function countVerseRefsInBlock(blockText) {
 function hasInlineVerseMentionOutsideFinalBlock(text, finalBlock) {
     const trimmed = String(text || "").trim();
     const withoutFinal = finalBlock
-        ? trimmed.replace(/(\(\s*v\.\s*[^)]+\))(?:\.)?\s*$/i, "").trim()
+        ? trimmed.replace(/(\(\s*v\.\s*[^)]+\))\.?\s*$/i, "").trim()
         : trimmed;
     return /\bv\.\s*\d[\d\-–]*/i.test(withoutFinal);
 }
@@ -1177,7 +1190,7 @@ export function consolidateVerseRefs(text) {
     return base;
 }
 
-function buildVerseRefFormatLockRetryNote({ minWords, maxWords, minSentences, maxSentences, listHeavy = false }) {
+function buildVerseRefFormatLockRetryNote({ minWords, maxWords, _minSentences, _maxSentences, listHeavy = false }) {
     const sentenceConstraint = listHeavy
         ? "Use EXACTLY 3 sentences."
         : "Use BETWEEN 4 and 6 sentences.";
@@ -1186,7 +1199,7 @@ function buildVerseRefFormatLockRetryNote({ minWords, maxWords, minSentences, ma
     return `IMPORTANT: FORMAT LOCK. Rewrite from scratch. Include EXACTLY 2 verse references total in ONE parenthesized block, e.g. (v. 3-4, v. 24-28). Do not include any other "(v." anywhere else in the text. Do not write inline verse mentions like "in v. 3". Do not use book/chapter notation like "Genesis 10:10". The verse-reference block must be the final characters of the output string. ${sentenceConstraint} Keep between ${aimMin} and ${maxWords} words. Output valid JSON only.`;
 }
 
-function buildSentenceCountRetryNote({ minWords, maxWords, minSentences, maxSentences, listHeavy = false }) {
+function buildSentenceCountRetryNote({ minWords, maxWords, _minSentences, _maxSentences, listHeavy = false }) {
     const sentenceConstraint = listHeavy
         ? "Rewrite from scratch using EXACTLY 3 sentences."
         : "Rewrite from scratch using BETWEEN 4 and 6 sentences.";
@@ -1198,8 +1211,8 @@ function buildSentenceCountRetryNote({ minWords, maxWords, minSentences, maxSent
 function buildGroundingRetryNote({
     minWords,
     targetWords,
-    minSentences,
-    maxSentences,
+    _minSentences,
+    _maxSentences,
     listHeavy = false,
 }) {
     const sentenceConstraint = listHeavy
@@ -1381,6 +1394,8 @@ async function upsertChapterResult(client, data) {
 
 async function main() {
     const translation = getArg("--translation", "WEBU");
+    const isPtBr = isPortugueseTranslation(translation);
+    const systemPrompt = getSystemPrompt(translation);
     const bookId = getArg("--book", null);
     const chapter = parseIntArg("--chapter", null);
     const limit = parseIntArg("--limit", 0);
@@ -1395,9 +1410,18 @@ async function main() {
     const retryModel = RETRY_MODEL;
 
     const promptPathArg = getArg("--prompt", null);
-    const promptPath = promptPathArg || (fastPlus ? DEFAULT_PROMPT_PATH_SIMPLE : DEFAULT_PROMPT_PATH);
-    const promptPathSimple = getArg("--prompt-simple", promptPathArg || DEFAULT_PROMPT_PATH_SIMPLE);
-    const promptPathComplex = getArg("--prompt-complex", promptPathArg || DEFAULT_PROMPT_PATH_COMPLEX);
+    const defaultPromptPath = isPtBr
+        ? path.join("ingest", "prompts", "chapter_explainer_prompt_pt-br.txt")
+        : DEFAULT_PROMPT_PATH;
+    const defaultPromptPathSimple = isPtBr
+        ? path.join("ingest", "prompts", "chapter_explainer_prompt_8b_pt-br.txt")
+        : DEFAULT_PROMPT_PATH_SIMPLE;
+    const defaultPromptPathComplex = isPtBr
+        ? path.join("ingest", "prompts", "chapter_explainer_prompt_pt-br.txt")
+        : DEFAULT_PROMPT_PATH_COMPLEX;
+    const promptPath = promptPathArg || (fastPlus ? defaultPromptPathSimple : defaultPromptPath);
+    const promptPathSimple = getArg("--prompt-simple", promptPathArg || defaultPromptPathSimple);
+    const promptPathComplex = getArg("--prompt-complex", promptPathArg || defaultPromptPathComplex);
     const promptVersionOverride = getArg("--prompt-version", null);
 
     const temperature = Number.isFinite(DEFAULT_TEMPERATURE) ? DEFAULT_TEMPERATURE : 0.15;
@@ -1711,6 +1735,7 @@ async function main() {
                     rawResponse = await callOllama({
                         host: OLLAMA_HOST,
                         model: modelName,
+                        systemPrompt,
                         userPrompt,
                         temperature: temp,
                         topP,
@@ -1725,6 +1750,7 @@ async function main() {
                         rawResponse = await callOllama({
                             host: OLLAMA_HOST,
                             model: modelName,
+                            systemPrompt,
                             userPrompt: invalidJsonRepairPrompt,
                             temperature: 0,
                             topP,
@@ -1739,6 +1765,7 @@ async function main() {
                                 rawResponse = await callOllama({
                                     host: OLLAMA_HOST,
                                     model: selectedModel,
+                                    systemPrompt,
                                     userPrompt: invalidJsonRepairPrompt,
                                     temperature: 0,
                                     topP,
@@ -1784,6 +1811,7 @@ async function main() {
             rawResponse = await callOllama({
                 host: OLLAMA_HOST,
                 model: selectedModel,
+                systemPrompt,
                 userPrompt: prompt,
                 temperature,
                 topP,

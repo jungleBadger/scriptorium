@@ -28,7 +28,7 @@ import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal.vue";
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
 
 // ── i18n locale (follows active translation) ───────────────────────────────
-const { locale } = useI18n();
+const { locale, t } = useI18n();
 
 // ── Breakpoints ────────────────────────────────────────────────────────────
 const { isMobile, isTablet, isDesktop } = useBreakpoint();
@@ -156,12 +156,12 @@ const ttsEnabled = computed(() => serviceCapabilities.loaded && serviceCapabilit
 
 const exploreUnavailableReason = computed(() => {
   if (exploreEnabled.value) return null;
-  return "Explore is temporarily unavailable.";
+  return t('errors.exploreUnavailable');
 });
 
 const ttsUnavailableReason = computed(() => {
   if (ttsEnabled.value) return null;
-  return serviceCapabilities.statuses.voiceAi?.message || "Read aloud is temporarily unavailable.";
+  return serviceCapabilities.statuses.voiceAi?.message || t('errors.ttsUnavailable');
 });
 
 async function refreshFeatureAvailability() {
@@ -413,7 +413,19 @@ watch(
 onMounted(async () => {
   loadLayoutPrefs();
   const saved = localStorage.getItem('scriptorium-reader-settings');
-  if (saved) try { Object.assign(readerSettings, JSON.parse(saved)); } catch {}
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      Object.assign(readerSettings, parsed);
+      if (parsed.translation && AVAILABLE_TRANSLATIONS.includes(parsed.translation)) {
+        translation.value = parsed.translation;
+      }
+    } catch {}
+  } else {
+    // First visit — pick translation based on browser language.
+    const lang = (navigator.language || '').toLowerCase();
+    if (lang.startsWith('pt')) translation.value = 'PT1911';
+  }
   applySettingsCSSVars();
   await refreshFeatureAvailability();
   // Normalize saved voice (or pick one) for the current translation.
@@ -428,12 +440,18 @@ onMounted(async () => {
   await initializeReader();
 });
 
-watch(readerSettings, () => {
-  localStorage.setItem('scriptorium-reader-settings', JSON.stringify({ ...readerSettings }));
+watch([readerSettings, translation], () => {
+  localStorage.setItem('scriptorium-reader-settings', JSON.stringify({ ...readerSettings, translation: translation.value }));
   applySettingsCSSVars();
 }, { deep: true });
 
 watch(translation, (trans) => { locale.value = translationLanguage(trans); }, { immediate: true });
+
+watch(translation, (trans) => {
+  document.title = translationLanguage(trans) === 'pt'
+    ? 'Scriptorium \u2013 Explore e Estude as Escrituras'
+    : 'Scriptorium \u2013 Explore and Study Scripture';
+}, { immediate: true });
 
 watch(translation, async (next, prev) => {
   if (next === prev) return;
@@ -897,15 +915,16 @@ async function onExploreSelection(payload = {}) {
     selectedEntities: getActiveEntityIdsForAsk(),
   });
 
-  // If an entity detail is on top of the stack, pop back to the base view so
-  // the explore-selection starter is visible. selectedEntityId is preserved so
-  // the entity still feeds into the query as context.
-  if (currentView.value?.type === "entityDetail" && panelStack.value.length > 1) {
+  // Pop any non-base view so the explore-selection starter is visible.
+  // selectedEntityId is preserved intentionally so the entity still feeds into
+  // the query as context.
+  const topType = currentView.value?.type;
+  if (topType && topType !== "chapterContext" && panelStack.value.length > 1) {
     panelStack.value = panelStack.value.slice(0, 1);
   }
 
   if (!exploreEnabled.value) {
-    exploreError.value = exploreUnavailableReason.value || "Explore is temporarily unavailable.";
+    exploreError.value = exploreUnavailableReason.value;
     return;
   }
 
@@ -913,19 +932,15 @@ async function onExploreSelection(payload = {}) {
 }
 
 function selectionPromptByChip(chipKey, selectionLabel) {
-  const refLabel = selectionLabel || buildAnchor().reference;
-  switch (String(chipKey || "")) {
-    case "summary":
-      return `Give a concise summary of ${refLabel} in context.`;
-    case "themes":
-      return `What are the main themes in ${refLabel}?`;
-    case "entities":
-      return `Identify the key people and places in ${refLabel}.`;
-    case "cross_refs":
-      return `Show relevant cross references for ${refLabel} and explain the connections.`;
-    default:
-      return `Explain ${refLabel} in context.`;
-  }
+  const ref = selectionLabel || buildAnchor().reference;
+  const keyMap = {
+    summary: "context.prompts.summary",
+    themes: "context.prompts.themes",
+    entities: "context.prompts.entities",
+    cross_refs: "context.prompts.crossRefs",
+  };
+  const localeKey = keyMap[String(chipKey || "")] || "context.prompts.default";
+  return t(localeKey, { ref });
 }
 
 async function onQuickExploreChip(chipKey) {
@@ -993,7 +1008,7 @@ async function ensureInsightsVisibleAfterExplore() {
 
 async function onExploreQuery() {
   if (!exploreEnabled.value) {
-    exploreError.value = exploreUnavailableReason.value || "Explore is temporarily unavailable.";
+    exploreError.value = exploreUnavailableReason.value;
     return;
   }
   const query = quickQuery.value.trim();
@@ -1013,7 +1028,7 @@ async function onExploreQuery() {
       quickQuery.value = "";
       await ensureInsightsVisibleAfterExplore();
     } else if (!exploreError.value) {
-      exploreError.value = "Could not explore this passage right now. Try again.";
+      exploreError.value = t('errors.exploreFailedRetry');
     }
   } finally {
     isExploring.value = false;
@@ -1176,7 +1191,7 @@ useGlobalShortcuts({
         @chapter-step="onChapterStep"
         @chapter-change="onChapterChange"
         @verse-step="onVerseStep"
-        @translation-change="(t) => (translation = t)"
+        @translation-change="(val) => (translation = val)"
         @explore-query="onExploreQuery"
         @quick-query-change="onQuickQueryChange"
         @settings-change="onSettingsChange"
