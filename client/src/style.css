@@ -3061,3 +3061,92 @@ body {
     flex: 0 0 auto;
   }
 }
+
+/* ── Keyboard Shortcuts Modal ────────────────────────────────────────────── */
+.kbd-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--drawer-backdrop);
+  z-index: 1300;
+}
+
+.kbd-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1301;
+  width: min(480px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow: var(--surface-shadow-strong);
+  outline: none;
+}
+
+.kbd-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.1rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.kbd-modal-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.kbd-modal-body {
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.kbd-group-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.kbd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.kbd-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.kbd-keys {
+  min-width: 8rem;
+  flex-shrink: 0;
+}
+
+.kbd-keys kbd {
+  display: inline-block;
+  padding: 0.1em 0.4em;
+  font-family: var(--ui);
+  font-size: 0.78rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  box-shadow: 0 1px 0 var(--line);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.kbd-desc {
+  font-size: 0.85rem;
+  color: var(--ink);
+}

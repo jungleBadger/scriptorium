@@ -22,6 +22,8 @@ import { fetchVoices, translationLanguage, pickVoiceForLanguage } from "./compos
 import { useTts } from "./composables/useTts.js";
 import { useReaderState } from "./composables/useReaderState.js";
 import { PT_BR_BOOK_NAMES } from "./data/bookNamesPtBr.js";
+import { useGlobalShortcuts } from "./composables/useGlobalShortcuts.js";
+import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal.vue";
 
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
 
@@ -1101,6 +1103,19 @@ function getRememberedBookPosition(book) {
 function getDisplayBookName(id, fallbackName) {
   return translation.value === "PT1911" ? PT_BR_BOOK_NAMES[id] || fallbackName : fallbackName;
 }
+
+// ── Global keyboard shortcuts ───────────────────────────────────────────────
+const showShortcutsModal = ref(false);
+
+useGlobalShortcuts({
+  prevChapter: () => onChapterStep(-1),
+  nextChapter: () => onChapterStep(1),
+  toggleLibrary: onToggleLibrary,
+  toggleInsights: onToggleInsights,
+  focusSearch: () => document.querySelector('.gtb-explore-input')?.focus(),
+  clearSelection: onClearSelection,
+  openShortcutsModal: () => { showShortcutsModal.value = true; },
+});
 </script>
 
 <template>
@@ -1274,5 +1289,9 @@ function getDisplayBookName(id, fallbackName) {
         @open-entity="onOpenEntity"
       />
     </DrawerShell>
+    <KeyboardShortcutsModal
+      v-if="showShortcutsModal"
+      @close="showShortcutsModal = false"
+    />
   </div>
 </template>

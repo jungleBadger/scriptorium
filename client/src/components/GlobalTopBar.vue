@@ -56,7 +56,7 @@ function openSettings() {
         :aria-pressed="libraryActive"
         :class="{ 'panel-toggle-btn--active': libraryActive }"
         :aria-label="t('nav.toggleLibrary')"
-        :title="t('nav.library')"
+        :title="t('nav.library') + ' (L)'"
         @click="emit('toggle-library')"
       >
         <span class="panel-toggle-icon text-neutral-600 transition-colors group-hover:text-neutral-900" aria-hidden="true">
@@ -73,6 +73,7 @@ function openSettings() {
         :placeholder="t('nav.explorePlaceholder')"
         :aria-label="t('nav.explore')"
         :aria-busy="isExploring ? 'true' : 'false'"
+        title="Focus search (/)"
         @input="emit('quick-query-change', $event.target.value)"
         @keyup.enter.prevent="emit('explore-query')"
       />
@@ -100,7 +101,7 @@ function openSettings() {
         type="button"
         :aria-pressed="showSettings"
         :aria-label="t('nav.settings')"
-        :title="t('nav.settings')"
+        :title="t('nav.settings') + ' (Esc to close)'"
         @click="openSettings"
       >
         <Icon
@@ -117,7 +118,7 @@ function openSettings() {
         :aria-pressed="insightsActive"
         :class="{ 'panel-toggle-btn--active': insightsActive }"
         :aria-label="t('nav.toggleInsights')"
-        :title="t('nav.insights')"
+        :title="t('nav.insights') + ' (Alt+I)'"
         @click="emit('toggle-insights')"
       >
         <span class="panel-toggle-icon text-neutral-600 transition-colors group-hover:text-neutral-900" aria-hidden="true">

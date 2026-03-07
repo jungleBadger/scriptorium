@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { fetchVoices, pickVoiceForLanguage, translationLanguage } from '../composables/useVoices.js';
 
@@ -26,6 +26,38 @@ const localSettings = reactive({
 const allVoices = ref([{ id: '', label: 'Default', language: 'en' }]);
 
 const panelRef = ref(null);
+let previousFocus = null;
+
+function getFocusable() {
+  return Array.from(
+    panelRef.value?.querySelectorAll(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    ) ?? []
+  );
+}
+
+function trapFocus(e) {
+  const focusable = getFocusable();
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function onPanelKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    emit('close');
+  } else if (e.key === 'Tab') {
+    trapFocus(e);
+  }
+}
 const activeLanguage = computed(() => translationLanguage(props.translation));
 const voiceOptions = computed(() => {
   const list = Array.isArray(allVoices.value) ? allVoices.value : [];
@@ -68,6 +100,7 @@ const fontOptions = computed(() => [
 ]);
 
 onMounted(async () => {
+  previousFocus = document.activeElement;
   const saved = localStorage.getItem('scriptorium-reader-settings');
   if (saved) {
     try { Object.assign(localSettings, JSON.parse(saved)); } catch {}
@@ -81,9 +114,17 @@ onMounted(async () => {
     normalizeVoiceSelection();
   }
   setTimeout(() => document.addEventListener('click', onDocClick), 0);
+  document.addEventListener('keydown', onPanelKeydown);
+  await nextTick();
+  getFocusable()[0]?.focus();
 });
 
-onUnmounted(() => document.removeEventListener('click', onDocClick));
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick);
+  document.removeEventListener('keydown', onPanelKeydown);
+  previousFocus?.focus();
+  previousFocus = null;
+});
 
 function onDocClick(e) {
   if (!panelRef.value?.contains(e.target)) emit('close');
@@ -125,7 +166,7 @@ watch(
 </script>
 
 <template>
-  <div ref="panelRef" class="reader-settings-panel">
+  <div ref="panelRef" class="reader-settings-panel" role="dialog" aria-modal="true" :aria-label="t('settings.title')" tabindex="-1">
     <div class="settings-panel-header">
       <span class="settings-panel-title">{{ t('settings.title') }}</span>
       <button class="nav-icon-btn" type="button" :title="t('settings.close')" @click="emit('close')">✕</button>

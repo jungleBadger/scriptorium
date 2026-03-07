@@ -127,6 +127,27 @@ function togglePin(bookId) {
 }
 
 function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
+
+// ── Chapter grid keyboard navigation ──────────────────────────────────────
+function onChapterGridKeydown(e) {
+  const arrowKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+  if (!arrowKeys.includes(e.key)) return;
+  e.preventDefault();
+
+  const buttons = Array.from(e.currentTarget.querySelectorAll('button'));
+  if (!buttons.length) return;
+
+  const index = buttons.indexOf(e.target);
+  if (index === -1) return;
+
+  let next = index;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = Math.min(index + 1, buttons.length - 1);
+  else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = Math.max(index - 1, 0);
+  else if (e.key === 'Home') next = 0;
+  else if (e.key === 'End') next = buttons.length - 1;
+
+  buttons[next]?.focus();
+}
 </script>
 
 <template>
@@ -189,7 +210,7 @@ function isPinned(bookId) { return pinnedIds.value.includes(bookId) }
         </button>
       </div>
       <div class="library-scroll-region">
-        <div class="library-chapter-grid" role="list" :aria-label="t('library.chaptersOf', { name: pickerBook.displayName || pickerBook.name })">
+        <div class="library-chapter-grid" role="list" :aria-label="t('library.chaptersOf', { name: pickerBook.displayName || pickerBook.name })" @keydown="onChapterGridKeydown">
           <button
             v-for="ch in chapterList"
             :key="ch"

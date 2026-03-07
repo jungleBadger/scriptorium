@@ -36,6 +36,16 @@ const emit = defineEmits([
   "open-entity",
 ]);
 
+function onPaneKeydown(e) {
+  if (e.key !== 'Escape') return;
+  e.preventDefault();
+  if (props.canGoBack) {
+    emit('go-back');
+  } else {
+    emit('clear-context');
+  }
+}
+
 const selectionQuickChips = computed(() => [
   { key: "summary", label: t("context.chips.summary") },
   { key: "themes", label: t("context.chips.themes") },
@@ -91,7 +101,7 @@ const headerMetaParts = computed(() => {
 </script>
 
 <template>
-  <aside class="context-pane">
+  <aside class="context-pane" tabindex="-1" @keydown="onPaneKeydown">
     <header class="context-header">
       <div class="context-header-left">
         <button
