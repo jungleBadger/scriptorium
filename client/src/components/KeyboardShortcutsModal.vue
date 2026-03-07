@@ -48,8 +48,8 @@ onUnmounted(() => {
 
 const SHORTCUTS = [
   { group: 'Navigation', items: [
-    { keys: '[ / Alt+←', description: 'Previous chapter' },
-    { keys: '] / Alt+→', description: 'Next chapter' },
+    { keys: 'J / Alt+←', description: 'Previous chapter' },
+    { keys: 'K / Alt+→', description: 'Next chapter' },
   ]},
   { group: 'Panels', items: [
     { keys: 'L', description: 'Toggle Library' },
@@ -58,7 +58,7 @@ const SHORTCUTS = [
   ]},
   { group: 'Reader', items: [
     { keys: '/', description: 'Focus search' },
-    { keys: '?', description: 'Show this dialog' },
+    { keys: 'H', description: 'Show this dialog' },
     { keys: '↑ / ↓', description: 'Step verse (when reader focused)' },
     { keys: 'Space', description: 'Select verse' },
     { keys: 'Shift+Space', description: 'Extend selection' },

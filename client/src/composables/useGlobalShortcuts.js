@@ -35,7 +35,7 @@ export function useGlobalShortcuts({
 
     const { key, altKey, shiftKey } = e;
 
-    // Alt+Arrow: prev/next chapter
+    // Alt+key bindings
     if (altKey && !shiftKey) {
       if (key === 'ArrowLeft')  { e.preventDefault(); prevChapter?.(); return; }
       if (key === 'ArrowRight') { e.preventDefault(); nextChapter?.(); return; }
@@ -45,13 +45,13 @@ export function useGlobalShortcuts({
 
     if (altKey || shiftKey) return;
 
-    // Single-key bindings (no modifiers)
+    // Single-letter bindings (no modifiers, no special characters)
     switch (key) {
-      case '[':      e.preventDefault(); prevChapter?.(); break;
-      case ']':      e.preventDefault(); nextChapter?.(); break;
+      case 'j':      e.preventDefault(); prevChapter?.(); break;
+      case 'k':      e.preventDefault(); nextChapter?.(); break;
       case 'l':      e.preventDefault(); toggleLibrary?.(); break;
       case '/':      e.preventDefault(); focusSearch?.(); break;
-      case '?':      e.preventDefault(); openShortcutsModal?.(); break;
+      case 'h':      e.preventDefault(); openShortcutsModal?.(); break;
       case 'Escape': e.preventDefault(); clearSelection?.(); break;
     }
   }

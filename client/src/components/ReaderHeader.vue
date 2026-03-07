@@ -32,7 +32,7 @@ const { chapterControlRef, onControlKeydown } = useKeyboardNav({
       type="button"
       :disabled="!hasPrev"
       :aria-label="t('header.prevChapter')"
-      title="Previous chapter (["
+      title="Previous chapter (J / Alt+←)"
       @click="$emit('go-prev')"
     >
       <Icon name="ChevronLeft" :size="14" aria-hidden="true" />
@@ -61,7 +61,7 @@ const { chapterControlRef, onControlKeydown } = useKeyboardNav({
       type="button"
       :disabled="!hasNext"
       :aria-label="t('header.nextChapter')"
-      title="Next chapter (])"
+      title="Next chapter (K / Alt+→)"
       @click="$emit('go-next')"
     >
       <span>{{ t('header.next') }}</span>
