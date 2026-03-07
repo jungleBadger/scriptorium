@@ -909,10 +909,11 @@ async function onExploreSelection(payload = {}) {
     selectedEntities: getActiveEntityIdsForAsk(),
   });
 
-  // If an entity detail is on top of the stack, pop back to the base view so
-  // the explore-selection starter is visible. selectedEntityId is preserved so
-  // the entity still feeds into the query as context.
-  if (currentView.value?.type === "entityDetail" && panelStack.value.length > 1) {
+  // Pop any non-base view so the explore-selection starter is visible.
+  // selectedEntityId is preserved intentionally so the entity still feeds into
+  // the query as context.
+  const topType = currentView.value?.type;
+  if (topType && topType !== "chapterContext" && panelStack.value.length > 1) {
     panelStack.value = panelStack.value.slice(0, 1);
   }
 

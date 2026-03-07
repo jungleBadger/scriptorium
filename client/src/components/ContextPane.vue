@@ -177,11 +177,11 @@ const headerMetaParts = computed(() => {
         </div>
       </div>
 
-      <div v-if="!currentView && !loading" class="state-text context-empty-state">
-        {{ hasSelection ? t('context.emptyWithSelection') : t('context.emptyNoChapter') }}
+      <div v-if="!currentView && !loading && !showSelectionExploreStarter" class="state-text context-empty-state">
+        {{ t('context.emptyNoChapter') }}
       </div>
 
-      <div v-else class="context-view-body">
+      <div v-else-if="currentView" class="context-view-body">
         <ChapterContextThreadCard
           v-if="currentView.type === 'chapterContext'"
           :thread="currentView"
