@@ -384,8 +384,6 @@ async function playVerseAt(idx, token) {
     state.paused = false;
   }
 
-  // Warm the next few verses early to reduce gaps between verse transitions.
-  prefetchFrom(idx + 1);
   if (!prefetched.has(verseNumber)) prefetchSingleVerse(verseNumber, { force: true });
 
   let data;
@@ -466,6 +464,8 @@ async function playVerseAt(idx, token) {
   try {
     await verseAudio.play();
     if (audio !== verseAudio || !isCurrentSession(token)) return;
+    // Warm the next few verses once this verse is confirmed to be playing.
+    prefetchFrom(idx + 1);
     rafId = requestAnimationFrame(tick);
   } catch (err) {
     if (!isCurrentSession(token)) return;
