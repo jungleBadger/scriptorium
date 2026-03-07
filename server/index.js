@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { closePool } from "./services/pool.js";
 import searchRoutes from "./routes/search.js";
@@ -34,7 +33,6 @@ await app.register(rateLimit, {
   }),
 });
 
-await app.register(cors);
 await app.register(searchRoutes);
 await app.register(askRoutes);
 await app.register(healthRoutes);
