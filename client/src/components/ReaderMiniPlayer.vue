@@ -29,7 +29,11 @@ const statusLabel = computed(() => {
   return t('tts.miniPlayer.idle');
 });
 
-const progressPct = computed(() => Math.max(0, Math.min(100, Math.round((tts.state.progress || 0) * 100))));
+const progressPct = computed(() => {
+  const progress = Number.isFinite(tts.state.progress) ? tts.state.progress : 0;
+  return Math.max(0, Math.min(100, progress * 100));
+});
+const progressStyle = computed(() => ({ width: `${progressPct.value.toFixed(3)}%` }));
 const speedLabel = computed(() => `${String(Number(tts.state.speed || 1).toFixed(2)).replace(/\.00$/, '')}x`);
 
 function onClose() {
@@ -111,7 +115,7 @@ function onClose() {
       </div>
 
       <div class="mini-player-track" aria-hidden="true">
-        <div class="mini-player-progress-bar" :style="{ width: progressPct + '%' }"></div>
+        <div class="mini-player-progress-bar" :style="progressStyle"></div>
       </div>
     </div>
   </Transition>
