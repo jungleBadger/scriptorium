@@ -13,8 +13,9 @@ Personal Bible Explorer with semantic search. Ingest Bible translations (USFM/US
 
 - Node.js 22+
 - Docker and Docker Compose
-- [voice.ai](https://voice.ai) account and API key (for text-to-speech)
-- [Cloudflare R2](https://developers.cloudflare.com/r2/) bucket (for TTS audio cache)
+- [Gemini API key](https://aistudio.google.com/) (for the Explore / Ask feature)
+- [voice.ai](https://voice.ai) account and API key (for text-to-speech, optional)
+- [Cloudflare R2](https://developers.cloudflare.com/r2/) bucket (for TTS audio cache, optional)
 
 ## First-Time Setup (Data + Ingest)
 
@@ -79,7 +80,17 @@ npm run build:client
 npm start
 ```
 
-10. Optional: configure text-to-speech (voice.ai + Cloudflare R2):
+10. Optional: enable the Explore / Ask feature (Gemini):
+
+Set the following environment variable (e.g. in a `.env` file):
+
+```
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Obtain a free API key at [Google AI Studio](https://aistudio.google.com/). The model defaults to `gemini-2.5-flash`; override with `GEMINI_MODEL=<model-id>`.
+
+11. Optional: configure text-to-speech (voice.ai + Cloudflare R2):
 
 Set the following environment variables (e.g. in a `.env` file):
 
@@ -93,7 +104,7 @@ R2_SECRET_ACCESS_KEY=your-r2-secret-key
 
 Add your voice IDs from the voice.ai dashboard to `server/data/voices.js`.
 
-11. Optional: enable local Ollama chat (`/api/ask`):
+12. Optional: install Ollama for chapter explanation enrichment (ingest pipeline only):
 
 ```bash
 # Install Ollama (https://ollama.com/download), then:
@@ -122,16 +133,108 @@ npm start
 
 Use this section when you already have the required files in `ingest/data`.
 
-## Ollama Chat Experience
+## Adding a New Translation
 
-Scriptorium includes a local Ask flow powered by Ollama (`qwen3:8b`) via `POST /api/ask`.
+Adding a translation is a two-part process: ingest the text into Postgres, then register the translation code in the handful of places where the server and client have explicit maps.
 
-### 1. Start Ollama and pull model
+### 1. Ingest the text
+
+**USFM source (zip of one file per book):**
 
 ```bash
-ollama serve
-ollama pull qwen3:8b
+node ingest/scripts/001_usfm_to_verses.mjs ingest/data/<file>.zip ingest/out <CODE>
 ```
+
+**USFX source (single XML file):**
+
+```bash
+node ingest/scripts/002_usfx_to_verses.mjs ingest/data/<file>.usfx.xml ingest/out <CODE>
+```
+
+Then load, chunk, and embed (these commands process all translations present in the DB, so existing data is not affected):
+
+```bash
+node ingest/scripts/003_load_verses_to_postgres.mjs ingest/out/verses.ndjson
+node ingest/scripts/004_generate_chunks.mjs 3 1
+node ingest/scripts/005_embed_chunks.mjs
+```
+
+### 2. Register the translation code
+
+The following files each contain a small map that must be extended. All changes are additive — one new entry per file.
+
+**`server/services/askService.js` — Gemini prompt language**
+
+Defaults to `"English"` if absent. Add an entry for any non-English translation:
+
+```js
+const TRANSLATION_LANGUAGE_NAME = {
+  PT1911: "Portuguese",
+  ARC:    "Portuguese",
+  YOUR_CODE: "Spanish", // ← add
+};
+```
+
+**`server/services/ttsService.js` — TTS voice language / locale**
+
+Controls which voice language is used for Read Aloud. Add an entry for any non-English translation:
+
+```js
+const TRANSLATION_TTS_PROFILE = {
+  PT1911: { language: "pt", locale: "pt-BR" },
+  ARC:    { language: "pt", locale: "pt-BR" },
+  YOUR_CODE: { language: "es", locale: "es-ES" }, // ← add
+};
+```
+
+**`client/src/App.vue` — UI translation picker**
+
+The hardcoded array controls which codes appear in the translation selector:
+
+```js
+const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911", "YOUR_CODE"]; // ← add
+```
+
+**`client/src/composables/useVoices.js` — auto-switch voice on translation change**
+
+Maps translation code → language code so the voice selector switches language automatically:
+
+```js
+const TRANSLATION_LANGUAGE = { PT1911: "pt", ARC: "pt", YOUR_CODE: "es" }; // ← add
+```
+
+**`client/src/components/ReaderSettingsPanel.vue` — UI locale label suffix**
+
+Used as the `lang` attribute hint and display label. Add an entry to `TRANSLATION_LABEL_SUFFIX`:
+
+```js
+const TRANSLATION_LABEL_SUFFIX = {
+  WEBU:      "en-us",
+  PT1911:    "pt-br",
+  ARC:       "pt-br",
+  YOUR_CODE: "es-es", // ← add
+};
+```
+
+### 3. Optional: localized book display names
+
+If the translation uses non-English book names, create a data file modelled on `client/src/data/bookNamesPtBr.js` (a plain object keyed by book ID) and extend the `getDisplayBookName` function in `App.vue` with a matching condition.
+
+---
+
+## Explore & Ask (Gemini)
+
+Scriptorium uses the Gemini API (`gemini-2.5-flash` by default) to power the Explore / Ask feature via `POST /api/ask`.
+
+### 1. Configure Gemini API key
+
+Add to your `.env` file:
+
+```
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+Obtain a free key at [Google AI Studio](https://aistudio.google.com/).
 
 ### 2. Start Scriptorium backend
 
@@ -139,13 +242,13 @@ ollama pull qwen3:8b
 npm start
 ```
 
-### 3. Verify health (Postgres + Ollama)
+### 3. Verify health (Postgres + Gemini)
 
 ```bash
 curl localhost:3000/api/health
 ```
 
-Expected status is `ok` only when Postgres is up and Ollama is reachable with the configured model.
+Returns `"status": "ok"` when Postgres is up and `GEMINI_API_KEY` is set. Returns `"status": "degraded"` when a feature (Explore or Read Aloud) is unavailable — the app still starts and serves scripture normally.
 
 ### 4. Ask from UI or API
 
@@ -168,16 +271,15 @@ Response shape:
 
 ```json
 {
-  "raw_response_text": "plain text answer from Ollama",
+  "raw_response_text": "plain text answer from Gemini",
   "found_entities": [],
   "relevant_passages": []
 }
 ```
 
 Notes:
-- `raw_response_text` is plain text (no JSON/Markdown required from model output).
-- `relevant_passages` is capped server-side to a maximum of 3.
-- Common errors include `OLLAMA_UNREACHABLE`, `OLLAMA_MODEL_MISSING`, and `OLLAMA_TIMEOUT`.
+- `raw_response_text` is plain text.
+- Common errors include `GEMINI_NOT_CONFIGURED`, `GEMINI_RATE_LIMITED`, and `GEMINI_ERROR`.
 
 ## npm Scripts
 
@@ -341,4 +443,4 @@ Notes:
 - Voice selection in the UI auto-switches language when the translation changes (e.g. PT1911 → Portuguese voice), but respects manual overrides.
 - Configure available voices in `server/data/voices.js`.
 
-See `ingest/README.md` for detailed pipeline docs and environment variables.
+See [ingest/README.md](ingest/README.md) for detailed pipeline docs and environment variables.
