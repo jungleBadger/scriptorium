@@ -117,7 +117,10 @@ const headerMetaParts = computed(() => {
         </button>
         <div class="context-header-info">
           <span class="sr-only">{{ t('context.insightsPanel') }}</span>
-          <h2 class="context-title">{{ headerTitle }}</h2>
+          <h2
+            class="context-title"
+            :title="currentView?.type === 'askResponse' && currentView?.query ? currentView.query : undefined"
+          >{{ headerTitle }}</h2>
           <p v-if="headerMetaParts.length" class="context-subtitle">
             <template v-for="(part, index) in headerMetaParts" :key="`${index}-${part}`">
               <span>{{ part }}</span>

@@ -140,6 +140,7 @@
     },
     "ask": {
       "exploring": "Explorando com IA...",
+      "youAsked": "Você perguntou:",
       "answer": "Resposta",
       "noAnswer": "Nenhum texto de resposta retornado.",
       "noResponse": "Nenhuma resposta ainda.",

@@ -60,6 +60,11 @@ function openEntityRef(entityRef) {
     </p>
 
     <div v-else class="stack-list">
+      <div v-if="thread.query" class="ask-query-bubble">
+        <span class="ask-query-label">{{ t('threads.ask.youAsked') }}</span>
+        <p class="ask-query-text">{{ thread.query }}</p>
+      </div>
+
       <section class="stack-block ask-answer-block">
         <p class="section-label">{{ t('threads.ask.answer') }}</p>
         <p v-if="answerText" class="result-text ask-answer-text">{{ answerText }}</p>

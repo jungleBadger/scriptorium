@@ -140,6 +140,7 @@
     },
     "ask": {
       "exploring": "Exploring with AI...",
+      "youAsked": "You asked:",
       "answer": "Answer",
       "noAnswer": "No answer text returned.",
       "noResponse": "No response yet.",
