@@ -1690,6 +1690,12 @@ body {
   padding: 0;
 }
 
+.entity-group > .stack-list > .state-text {
+  margin: 0;
+  padding: 0.6rem;
+  text-align: center;
+}
+
 .entity-group-toggle:hover {
   background: var(--thread-block-header-hover-bg);
 }

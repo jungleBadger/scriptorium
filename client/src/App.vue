@@ -226,6 +226,14 @@ const currentView = computed(() => panelStack.value[panelStack.value.length - 1]
 const canGoBack = computed(() => panelStack.value.length > 1);
 const stackDepth = computed(() => panelStack.value.length);
 
+// Cap stack at 20 entries; on overflow evict from index 1 (FIFO), never index 0 (base chapter context).
+function pushToStack(view) {
+  panelStack.value.push(view);
+  while (panelStack.value.length > 20) {
+    panelStack.value.splice(1, 1);
+  }
+}
+
 // ── Stale-request guards ───────────────────────────────────────────────────
 let chapterRequestToken = 0;
 let chapterContextToken = 0;
@@ -606,7 +614,7 @@ async function openEntityDetail(entityId, name, anchor) {
     error: null,
     data: null,
   });
-  panelStack.value.push(view);
+  pushToStack(view);
 
   try {
     const payload = await getEntityById(entityId);
@@ -632,7 +640,7 @@ async function runSearch(query, anchor, { includeEntities = true, prefetchedEnti
     data: null,
     query,
   });
-  panelStack.value.push(view);
+  pushToStack(view);
 
   try {
     const passageSearch = () =>
@@ -715,7 +723,7 @@ async function runAsk(query, anchor) {
     data: null,
     query,
   });
-  panelStack.value.push(view);
+  pushToStack(view);
 
   try {
     const payload = await ask({
