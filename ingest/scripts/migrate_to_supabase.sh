@@ -2,6 +2,10 @@
 # migrate_to_supabase.sh — Dumps data from local bible DB and restores to Supabase.
 # Tables/indexes must already exist in the target (run SQL migrations first).
 #
+# WARNING: Full-load mode (default) assumes target tables are EMPTY.
+# If the target already contains seed data or prior migrations, conflicts are
+# silently skipped (DO NOTHING) or will crash (COPY). Verify target state first.
+#
 # Usage:
 #   SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
 #
@@ -9,6 +13,17 @@
 #   LOCAL_PASSWORD=xxx      (default: "bible")
 #   DUMP_FILE=/tmp/dump.sql (default: /tmp/scriptorium_data.sql)
 #   SKIP_DUMP=1             (reuse an existing dump file)
+#
+# Delta mode — push only new/changed rows for specific tables:
+#   DELTA=1 TABLES=chapter_explanations SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+#
+#   DELTA=1   switches from COPY to INSERT … ON CONFLICT DO NOTHING.
+#             Rows already in the target are left untouched (target wins).
+#             Rows added post-migration are NOT overwritten — intentional.
+#   TABLES=   comma-separated list of tables to dump. REQUIRED when DELTA=1.
+#             Omitting TABLES in delta mode is an error: tables with no natural
+#             unique constraint (beyond a serial id) would silently insert
+#             duplicates if local and remote ids have drifted.
 
 set -euo pipefail
 
@@ -28,6 +43,13 @@ SUPABASE_DB="${SUPABASE_DB:-postgres}"
 SUPABASE_PASSWORD="${SUPABASE_PASSWORD:?Must set SUPABASE_PASSWORD}"
 
 DUMP_FILE="${DUMP_FILE:-/tmp/scriptorium_data.sql}"
+DELTA="${DELTA:-0}"
+TABLES="${TABLES:-}"
+
+if [[ "$DELTA" == "1" && -z "$TABLES" ]]; then
+    echo "ERROR: TABLES= is required when DELTA=1. Specify a comma-separated list of tables to avoid silently inserting duplicates into tables with no natural unique key."
+    exit 1
+fi
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,11 +74,27 @@ if [[ "${SKIP_DUMP:-0}" == "1" && -f "$DUMP_FILE" ]]; then
     echo "=== Skipping dump — reusing $DUMP_FILE ==="
 else
     echo "=== Dumping local data to $DUMP_FILE ==="
+
+    TABLE_ARGS=""
+    if [[ -n "$TABLES" ]]; then
+        for t in ${TABLES//,/ }; do TABLE_ARGS="$TABLE_ARGS --table=$t"; done
+    fi
+
+    # DELTA=1: use INSERT … ON CONFLICT DO NOTHING so existing rows in the
+    # target are left untouched. COPY (default) has no conflict handling and
+    # will crash if the target already contains any of the same rows.
+    CONFLICT_ARGS=""
+    if [[ "$DELTA" == "1" ]]; then
+        CONFLICT_ARGS="--inserts --on-conflict-do-nothing"
+    fi
+
     local_dump \
         --data-only \
         --no-owner \
         --disable-triggers \
         --schema=public \
+        $TABLE_ARGS \
+        $CONFLICT_ARGS \
         > "$DUMP_FILE"
     echo "    Dump size: $(du -sh "$DUMP_FILE" | cut -f1)"
 fi
