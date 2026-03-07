@@ -1185,7 +1185,7 @@ useGlobalShortcuts({
         @chapter-step="onChapterStep"
         @chapter-change="onChapterChange"
         @verse-step="onVerseStep"
-        @translation-change="(t) => (translation = t)"
+        @translation-change="(val) => (translation = val)"
         @explore-query="onExploreQuery"
         @quick-query-change="onQuickQueryChange"
         @settings-change="onSettingsChange"

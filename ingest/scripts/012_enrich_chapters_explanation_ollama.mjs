@@ -804,7 +804,7 @@ function coerceChapterOutputFromRaw(raw) {
         .trim();
 
     // Try extracting quoted chapter_explanation value from malformed JSON-ish text.
-    const keyMatch = text.match(/"chapter_explanation"\s*:\s*"([\s\S]*?)"\s*(?:,|\}|$)/i);
+    const keyMatch = text.match(/"chapter_explanation"\s*:\s*"([\s\S]*?)"\s*(?:,|}|$)/i);
     if (keyMatch && keyMatch[1]) {
         const extracted = keyMatch[1]
             .replace(/\\"/g, "\"")
@@ -886,9 +886,7 @@ function isLikelyTruncated(explanation) {
     if (/\(v\.\s*$/i.test(text) || /\($/.test(text)) return true;
 
     const endsWithSentencePunctuation = /[.!?](?:["')\]]+)?$/.test(text);
-    if (!endsWithSentencePunctuation) return true;
-
-    return false;
+    return !endsWithSentencePunctuation;
 }
 
 function normalizeForGrounding(value) {
@@ -983,7 +981,7 @@ function countVerseRefBlocks(text) {
 
 function extractFinalVerseRefBlock(text) {
     // Accept either "... (v. 1-3, v. 24-28)" or "... (v. 1-3, v. 24-28)."
-    return String(text || "").trim().match(/(\(\s*v\.\s*[^)]+\))(?:\.)?\s*$/i)?.[1] || null;
+    return String(text || "").trim().match(/(\(\s*v\.\s*[^)]+\))\.?\s*$/i)?.[1] || null;
 }
 
 function countVerseRefsInBlock(blockText) {
@@ -995,7 +993,7 @@ function countVerseRefsInBlock(blockText) {
 function hasInlineVerseMentionOutsideFinalBlock(text, finalBlock) {
     const trimmed = String(text || "").trim();
     const withoutFinal = finalBlock
-        ? trimmed.replace(/(\(\s*v\.\s*[^)]+\))(?:\.)?\s*$/i, "").trim()
+        ? trimmed.replace(/(\(\s*v\.\s*[^)]+\))\.?\s*$/i, "").trim()
         : trimmed;
     return /\bv\.\s*\d[\d\-–]*/i.test(withoutFinal);
 }
@@ -1192,7 +1190,7 @@ export function consolidateVerseRefs(text) {
     return base;
 }
 
-function buildVerseRefFormatLockRetryNote({ minWords, maxWords, minSentences, maxSentences, listHeavy = false }) {
+function buildVerseRefFormatLockRetryNote({ minWords, maxWords, _minSentences, _maxSentences, listHeavy = false }) {
     const sentenceConstraint = listHeavy
         ? "Use EXACTLY 3 sentences."
         : "Use BETWEEN 4 and 6 sentences.";
@@ -1201,7 +1199,7 @@ function buildVerseRefFormatLockRetryNote({ minWords, maxWords, minSentences, ma
     return `IMPORTANT: FORMAT LOCK. Rewrite from scratch. Include EXACTLY 2 verse references total in ONE parenthesized block, e.g. (v. 3-4, v. 24-28). Do not include any other "(v." anywhere else in the text. Do not write inline verse mentions like "in v. 3". Do not use book/chapter notation like "Genesis 10:10". The verse-reference block must be the final characters of the output string. ${sentenceConstraint} Keep between ${aimMin} and ${maxWords} words. Output valid JSON only.`;
 }
 
-function buildSentenceCountRetryNote({ minWords, maxWords, minSentences, maxSentences, listHeavy = false }) {
+function buildSentenceCountRetryNote({ minWords, maxWords, _minSentences, _maxSentences, listHeavy = false }) {
     const sentenceConstraint = listHeavy
         ? "Rewrite from scratch using EXACTLY 3 sentences."
         : "Rewrite from scratch using BETWEEN 4 and 6 sentences.";
@@ -1213,8 +1211,8 @@ function buildSentenceCountRetryNote({ minWords, maxWords, minSentences, maxSent
 function buildGroundingRetryNote({
     minWords,
     targetWords,
-    minSentences,
-    maxSentences,
+    _minSentences,
+    _maxSentences,
     listHeavy = false,
 }) {
     const sentenceConstraint = listHeavy
