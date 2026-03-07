@@ -57,7 +57,7 @@
   --chip-bg: #fff;
   --chip-text: #584841;
   --ghost-bg: #fff;
-  --ghost-border: #dcc3b0;
+  --ghost-border: #8a7265;
   --ghost-text: #5f4b3f;
   --ghost-hover-bg: #fff5ea;
   --primary-text: #fff;
@@ -187,7 +187,7 @@
   --chip-bg: rgba(255, 255, 255, 0.04);
   --chip-text: var(--ink);
   --ghost-bg: rgba(255, 255, 255, 0.04);
-  --ghost-border: rgba(232, 221, 212, 0.18);
+  --ghost-border: rgba(232, 221, 212, 0.38);
   --ghost-text: var(--ink);
   --ghost-hover-bg: rgba(255, 255, 255, 0.08);
   --primary-hover: #bc553b;
@@ -261,6 +261,10 @@
   --library-chapter-btn-active-border: var(--accent);
   --library-chapter-btn-active-text: #fff;
   --muted: #a09080;
+  /* ── Dark mode overrides for formerly-unset root variables ── */
+  --ink: #ede6df;
+  --card: rgba(39, 34, 30, 0.96);
+  --line: rgba(232, 221, 212, 0.18);
 }
 
 * {
@@ -294,7 +298,6 @@ body {
 }
 
 #app {
-  min-height: 100vh;
   height: 100vh;
   min-width: 0;
   min-height: 0;
@@ -993,7 +996,6 @@ body {
   font-size: 0.72rem;
   font-weight: 400;
   text-align: right;
-  opacity: 0.7;
   font-variant-numeric: tabular-nums;
   margin-top: 0.25rem;
 }
@@ -1226,6 +1228,11 @@ body {
   align-items: center;
 }
 
+.settings-panel-header .nav-icon-btn {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
 .settings-panel-title {
   font-size: 0.88rem;
   font-weight: 700;
@@ -1243,7 +1250,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--control-text-strong);
 }
 
 .settings-option-row {
@@ -1261,26 +1268,12 @@ body {
 .settings-help-text {
   margin: 0;
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--control-text);
 }
 
 .settings-option-active {
   background: var(--accent-soft) !important;
   border-color: var(--accent) !important;
-}
-
-.theme-btn--light {
-  background: #fff9f2;
-}
-
-.theme-btn--sepia {
-  background: #f4ead8;
-}
-
-.theme-btn--dark {
-  background: #211e1b;
-  color: #e8ddd4 !important;
-  border-color: #3a302a !important;
 }
 
 @supports (height: 100dvh) {
@@ -1324,7 +1317,6 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
-  opacity: 0.74;
 }
 
 .context-header-info .context-title {
@@ -1475,7 +1467,6 @@ body {
   margin: 0;
   color: var(--muted);
   font-size: 0.72rem;
-  opacity: 0.8;
   display: flex;
   flex-wrap: wrap;
   gap: 0.15rem 0.3rem;
@@ -2166,6 +2157,48 @@ body {
   cursor: not-allowed;
 }
 
+/* ── Theme preview buttons — always show their own colors regardless of active state ── */
+/* Must come after .ghost-btn so !important backgrounds take precedence in the cascade. */
+.theme-btn--light {
+  background: #fff9f2 !important;
+  color: #3b2f26 !important;
+  border-color: #a08878 !important;
+}
+
+.theme-btn--sepia {
+  background: #f4ead8 !important;
+  color: #3b2f26 !important;
+  border-color: #957558 !important;
+}
+
+.theme-btn--dark {
+  background: #211e1b !important;
+  color: #e8ddd4 !important;
+  border-color: #7a6a5e !important;
+}
+
+/* Active state: accent ring instead of accent-soft background (which ruins the preview). */
+.theme-btn--light.settings-option-active,
+.theme-btn--sepia.settings-option-active,
+.theme-btn--dark.settings-option-active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ── Entity group chevron icon — inherit parent color instead of Tailwind neutral-600 ── */
+.entity-group-chevron svg {
+  color: inherit;
+}
+
+/* ── Dark mode: nav icon colors (Tailwind text-neutral-600 is too dark on a dark nav bar) ── */
+[data-theme="dark"] .panel-toggle-icon svg,
+[data-theme="dark"] .reader-settings-btn svg {
+  color: var(--control-text);
+}
+
+[data-theme="dark"] .panel-toggle-btn:hover .panel-toggle-icon svg {
+  color: var(--control-text-strong);
+}
+
 /* ── Responsive: Tablet (768–1199px) ─────────────────────────────────────── */
 @media (max-width: 1199px) {
   /* When on tablet with no column helpers, default to full-width */
@@ -2202,8 +2235,8 @@ body {
   }
 
   .reader-text {
-    font-size: 1.04rem;
-    line-height: 1.75;
+    font-size: var(--reader-font-size, 1.04rem);
+    line-height: var(--reader-line-height, 1.75);
   }
 
   .verse-actions {
