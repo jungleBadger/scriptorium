@@ -226,9 +226,25 @@ const currentView = computed(() => panelStack.value[panelStack.value.length - 1]
 const canGoBack = computed(() => panelStack.value.length > 1);
 const stackDepth = computed(() => panelStack.value.length);
 
+// Cap stack at 20 entries; on overflow evict from index 1 (FIFO), never index 0 (base chapter context).
+function pushToStack(view) {
+  panelStack.value.push(view);
+  while (panelStack.value.length > 20) {
+    panelStack.value.splice(1, 1);
+  }
+}
+
 // ── Stale-request guards ───────────────────────────────────────────────────
 let chapterRequestToken = 0;
 let chapterContextToken = 0;
+let chapterAbortController = null;
+let chapterContextAbortController = null;
+let askAbortController = null;
+
+// ── Chapter look-ahead prefetch ────────────────────────────────────────────
+const prefetchedChapter = ref(null); // { bookId, chapter, data } — next-chapter cache
+let prefetchAbortController = null;
+let prefetchTimer = null;
 
 // ── Position memory ────────────────────────────────────────────────────────
 const chapterVerseMemory = new Map();
@@ -511,6 +527,8 @@ async function initializeReader() {
 
 async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) {
   tts.stop();
+  if (chapterAbortController) chapterAbortController.abort();
+  chapterAbortController = new AbortController();
   const requestToken = ++chapterRequestToken;
 
   // Optimistically update location so the sticky header reflects the destination
@@ -529,7 +547,7 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
   void loadChapterContextView(nextBookId, nextChapter);
 
   try {
-    const payload = await getChapter(nextBookId, nextChapter, translation.value);
+    const payload = await getChapter(nextBookId, nextChapter, translation.value, { signal: chapterAbortController.signal });
     if (requestToken !== chapterRequestToken) return;
 
     chapterData.value = payload;
@@ -552,6 +570,7 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     }
 
   } catch (err) {
+    if (err?.name === "AbortError") return;
     if (requestToken !== chapterRequestToken) return;
     // Revert the optimistic location update on failure.
     bookId.value = prevBookId;
@@ -565,8 +584,46 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
   }
 }
 
+function cancelPrefetch() {
+  if (prefetchTimer !== null) { clearTimeout(prefetchTimer); prefetchTimer = null; }
+  if (prefetchAbortController) { prefetchAbortController.abort(); prefetchAbortController = null; }
+}
+
+function schedulePrefetch() {
+  cancelPrefetch();
+  const nav = chapterData.value?.next;
+  if (!nav) return; // no next chapter (last chapter of last book)
+  if (tts.state.playing) return; // skip while audio is already under load
+  const targetBookId = nav.book_id;
+  const targetChapter = nav.chapter ?? 1;
+  prefetchTimer = setTimeout(async () => {
+    prefetchTimer = null;
+    prefetchAbortController = new AbortController();
+    try {
+      const data = await getChapter(targetBookId, targetChapter, translation.value, { signal: prefetchAbortController.signal });
+      prefetchAbortController = null;
+      prefetchedChapter.value = { bookId: targetBookId, chapter: targetChapter, data };
+    } catch {
+      prefetchAbortController = null;
+    }
+  }, 500);
+}
+
+// External trigger: cancel prefetch when a new chapter load begins; schedule
+// one after a successful load finishes. loadChapter() itself is unchanged.
+watch(readerLoading, (loading) => {
+  if (loading) {
+    cancelPrefetch();
+    prefetchedChapter.value = null;
+  } else if (!readerError.value) {
+    schedulePrefetch();
+  }
+});
+
 // ── Panel navigation ───────────────────────────────────────────────────────
 async function loadChapterContextView(nextBookId, nextChapter) {
+  if (chapterContextAbortController) chapterContextAbortController.abort();
+  chapterContextAbortController = new AbortController();
   const token = ++chapterContextToken;
   const anchor = {
     translation: translation.value,
@@ -586,11 +643,12 @@ async function loadChapterContextView(nextBookId, nextChapter) {
   panelStack.value = [view];
 
   try {
-    const payload = await getChapterContext(nextBookId, nextChapter, translation.value);
+    const payload = await getChapterContext(nextBookId, nextChapter, translation.value, { signal: chapterContextAbortController.signal });
     if (token !== chapterContextToken) return;
     view.status = "ready";
     view.data = payload;
   } catch (err) {
+    if (err?.name === "AbortError") return;
     if (token !== chapterContextToken) return;
     view.status = "error";
     view.error = getApiErrorMessage(err, { context: "chapterContext" });
@@ -606,7 +664,7 @@ async function openEntityDetail(entityId, name, anchor) {
     error: null,
     data: null,
   });
-  panelStack.value.push(view);
+  pushToStack(view);
 
   try {
     const payload = await getEntityById(entityId);
@@ -632,7 +690,7 @@ async function runSearch(query, anchor, { includeEntities = true, prefetchedEnti
     data: null,
     query,
   });
-  panelStack.value.push(view);
+  pushToStack(view);
 
   try {
     const passageSearch = () =>
@@ -715,7 +773,9 @@ async function runAsk(query, anchor) {
     data: null,
     query,
   });
-  panelStack.value.push(view);
+  if (askAbortController) askAbortController.abort();
+  askAbortController = new AbortController();
+  pushToStack(view);
 
   try {
     const payload = await ask({
@@ -727,12 +787,14 @@ async function runAsk(query, anchor) {
       active_entity_ids: getActiveEntityIdsForAsk(),
       k_entities: 12,
       k_passages: safePassages,
+      signal: askAbortController.signal,
     });
 
     view.status = "ready";
     view.data = payload;
     return true;
   } catch (err) {
+    if (err?.name === "AbortError") return false;
     const message = getApiErrorMessage(err, { context: "ask" });
     view.status = "error";
     view.error = message;
@@ -957,6 +1019,34 @@ async function onNavigate(direction) {
   const targetChapter = nav.chapter ?? (direction === "prev" ? targetBook.chapters : 1);
   const targetVerse =
     direction === "next" ? 1 : getRememberedVerse(nav.book_id, targetChapter) ?? 1;
+
+  // Cache-hit path: consume prefetched data instantly, skip the API round-trip.
+  if (direction === "next") {
+    const cached = prefetchedChapter.value;
+    if (cached && cached.bookId === nav.book_id && cached.chapter === targetChapter) {
+      cancelPrefetch();
+      prefetchedChapter.value = null;
+      tts.stop();
+      if (chapterAbortController) chapterAbortController.abort();
+      chapterRequestToken++; // invalidate any in-flight request
+      bookId.value = nav.book_id;
+      chapter.value = targetChapter;
+      readerError.value = null;
+      selectedEntityId.value = null;
+      readerUx.setSelectionNone();
+      readerUx.setUiState({ chromeHidden: false });
+      void loadChapterContextView(nav.book_id, targetChapter);
+      chapterData.value = cached.data;
+      const verses = cached.data.verses || [];
+      const firstVerse = verses[0]?.verse ?? null;
+      const nextActiveVerse = verses.some((v) => v.verse === targetVerse) ? targetVerse : firstVerse;
+      activeVerse.value = nextActiveVerse;
+      if (nextActiveVerse != null) rememberPosition(nav.book_id, targetChapter, nextActiveVerse);
+      schedulePrefetch(); // begin warming the chapter after this one
+      return;
+    }
+  }
+
   await loadChapter(nav.book_id, targetChapter, { focusVerse: targetVerse });
 }
 

@@ -59,7 +59,8 @@ async function request(url, options = {}) {
   let res;
   try {
     res = await fetch(url, options);
-  } catch {
+  } catch (err) {
+    if (err?.name === "AbortError") throw err;
     throw new ApiError("Could not reach the server. Check your network or backend process.", {
       code: "NETWORK_ERROR",
       retryable: true,
@@ -92,9 +93,10 @@ export async function getBooks(translation = "WEBU") {
   return request(`/api/books?translation=${encodeURIComponent(translation)}`);
 }
 
-export async function getChapter(bookId, chapter, translation = "WEBU") {
+export async function getChapter(bookId, chapter, translation = "WEBU", { signal } = {}) {
   return request(
-    `/api/chapters/${encodeURIComponent(bookId)}/${chapter}?translation=${encodeURIComponent(translation)}`
+    `/api/chapters/${encodeURIComponent(bookId)}/${chapter}?translation=${encodeURIComponent(translation)}`,
+    { signal }
   );
 }
 
@@ -129,6 +131,7 @@ export async function ask({
   active_entity_ids = [],
   k_entities = 12,
   k_passages = 10,
+  signal,
 }) {
   const payload = {
     question,
@@ -145,12 +148,14 @@ export async function ask({
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   });
 }
 
-export async function getChapterContext(bookId, chapter, translation = "WEBU") {
+export async function getChapterContext(bookId, chapter, translation = "WEBU", { signal } = {}) {
   return request(
-    `/api/chapters/${encodeURIComponent(bookId)}/${chapter}/context?translation=${encodeURIComponent(translation)}`
+    `/api/chapters/${encodeURIComponent(bookId)}/${chapter}/context?translation=${encodeURIComponent(translation)}`,
+    { signal }
   );
 }
 

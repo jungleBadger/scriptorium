@@ -20,7 +20,7 @@ Converts Bible sources (USFM or USFX format) into structured data in Postgres an
 
 ## Prerequisites
 
-- **Node.js** v18+ (ESM support required)
+- **Node.js** 22+ (ESM support required)
 - **Docker** + **Docker Compose** (for Postgres with pgvector)
 - **Ollama** (for chapter explanation enrichment — optional)
 - Source data files placed in `ingest/data/` (see [Data Sources & Licensing](#data-sources--licensing) for where to obtain them)
@@ -32,7 +32,7 @@ Converts Bible sources (USFM or USFX format) into structured data in Postgres an
 ### 1. Start the database
 
 ```bash
-docker compose up -d
+docker compose -f infra/docker-compose.yml up -d
 ```
 
 This spins up Postgres with the pgvector extension. Connection defaults are `localhost:5432`, database `bible`, user `bible`, password `bible`.
@@ -40,13 +40,14 @@ This spins up Postgres with the pgvector extension. Connection defaults are `loc
 ### 2. Run migrations
 
 ```bash
-psql -h localhost -U bible -d bible -f ingest/sql/001_schema.sql
-psql -h localhost -U bible -d bible -f ingest/sql/002_verses.sql
+psql -h localhost -U bible -d bible -f ingest/sql/001_init.sql
+psql -h localhost -U bible -d bible -f ingest/sql/002_chunks.sql
 psql -h localhost -U bible -d bible -f ingest/sql/003_embeddings.sql
 psql -h localhost -U bible -d bible -f ingest/sql/004_entities.sql
 psql -h localhost -U bible -d bible -f ingest/sql/005_entities_geo_indexes.sql
 psql -h localhost -U bible -d bible -f ingest/sql/007_openbible_extended.sql
 psql -h localhost -U bible -d bible -f ingest/sql/008_chapter_explanations.sql
+psql -h localhost -U bible -d bible -f ingest/sql/009_perf_indexes.sql
 ```
 
 ### 3. Place source data files
@@ -73,7 +74,7 @@ npm install
 
 ### 5. (Optional) Install Ollama for chapter explanations
 
-Download from [ollama.ai](https://ollama.ai) and pull a model:
+Download from [ollama.com](https://ollama.com) and pull a model:
 
 ```bash
 ollama pull qwen3:8b
