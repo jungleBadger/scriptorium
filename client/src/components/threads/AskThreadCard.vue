@@ -69,6 +69,9 @@ function openEntityRef(entityRef) {
         <p class="section-label">{{ t('threads.ask.answer') }}</p>
         <p v-if="answerText" class="result-text ask-answer-text">{{ answerText }}</p>
         <p v-else class="state-text">{{ t('threads.ask.noAnswer') }}</p>
+        <p v-if="answerText" class="ai-disclaimer ask-answer-disclaimer">
+          {{ t('threads.ask.aiGenerated') }}
+        </p>
       </section>
 
       <section class="entity-group">

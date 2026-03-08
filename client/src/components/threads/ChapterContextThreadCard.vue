@@ -9,9 +9,10 @@ const { t, te } = useI18n();
 const props = defineProps({
   thread: { type: Object, required: true },
   selectedEntityId: { type: Number, default: null },
+  feedbackEnabled: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(["select-entity", "open-entity"]);
+const emit = defineEmits(["select-entity", "open-entity", "open-feedback"]);
 
 const data = computed(() => props.thread.data || null);
 const explanation = computed(() => data.value?.explanation || null);
@@ -294,6 +295,30 @@ function formatVerseHint(chapterVerses) {
 function shouldShowSubtypeTag(entity) {
   return shouldShowEntitySubtypeTag(entity?.canonical_name, entity?.type);
 }
+
+function compactObject(source) {
+  return Object.fromEntries(
+    Object.entries(source || {}).filter(([, value]) => value != null && value !== "")
+  );
+}
+
+function reportSummary() {
+  if (!explanation.value?.text) return;
+  const metadata = compactObject({
+    model: explanation.value.model,
+    prompt_version: explanation.value.prompt_version,
+    generated_at: explanation.value.generated_at,
+  });
+
+  emit("open-feedback", {
+    kind: "content_report",
+    source_label: t("feedback.sources.chapterSummary"),
+    target_type: "chapter_summary",
+    content_snapshot: explanation.value.text,
+    generation_metadata: Object.keys(metadata).length ? metadata : null,
+    page_context: { surface: "chapter_summary" },
+  });
+}
 </script>
 
 <template>
@@ -367,7 +392,12 @@ function shouldShowSubtypeTag(entity) {
         <div v-if="chapterSummaryOpen" class="stack-block">
           <p v-if="explanation?.text" class="result-text">{{ explanation.text }}</p>
           <p v-else class="state-text">{{ t('threads.chapterContext.noSummary') }}</p>
-          <p class="ai-disclaimer" :title="chapterSummaryMetaTitle || null">{{ t('threads.chapterContext.aiGenerated') }}</p>
+          <div v-if="explanation?.text" class="ai-disclaimer-row">
+            <p class="ai-disclaimer" :title="chapterSummaryMetaTitle || null">{{ t('threads.chapterContext.aiGenerated') }}</p>
+            <button v-if="feedbackEnabled" class="inline-link-btn" type="button" @click="reportSummary">
+              {{ t('feedback.actions.reportContent') }}
+            </button>
+          </div>
         </div>
       </section>
 

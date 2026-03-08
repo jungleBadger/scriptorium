@@ -25,6 +25,7 @@ const props = defineProps({
   hasSelection: { type: Boolean, default: false },
   selectionLabel: { type: String, default: "" },
   showSelectionExploreStarter: { type: Boolean, default: false },
+  feedbackEnabled: { type: Boolean, default: true },
 });
 
 const emit = defineEmits([
@@ -35,6 +36,7 @@ const emit = defineEmits([
   "select-entity",
   "open-reference",
   "open-entity",
+  "open-feedback",
 ]);
 
 function onPaneKeydown(e) {
@@ -186,16 +188,20 @@ const headerMetaParts = computed(() => {
           v-if="currentView.type === 'chapterContext'"
           :thread="currentView"
           :selected-entity-id="selectedEntityId"
+          :feedback-enabled="feedbackEnabled"
           @select-entity="emit('select-entity', $event)"
           @open-entity="emit('open-entity', $event)"
+          @open-feedback="emit('open-feedback', $event)"
         />
 
         <EntityDetailThreadCard
           v-else-if="currentView.type === 'entityDetail'"
           :thread="currentView"
           :chapter-entities="chapterEntities"
+          :feedback-enabled="feedbackEnabled"
           @open-reference="emit('open-reference', $event)"
           @open-entity="emit('open-entity', $event)"
+          @open-feedback="emit('open-feedback', $event)"
         />
 
         <ParallelThreadCard
