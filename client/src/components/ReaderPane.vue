@@ -37,6 +37,7 @@ const props = defineProps({
   isExploring: { type: Boolean, default: false },
   exploreError: { type: String, default: null },
   exploreEnabled: { type: Boolean, default: true },
+  ready: { type: Boolean, default: true },
   exploreDisabledReason: { type: String, default: null },
   ttsEnabled: { type: Boolean, default: true },
   ttsDisabledReason: { type: String, default: null },
@@ -541,6 +542,7 @@ onUnmounted(() => {
       :loading="loading"
       :chrome-hidden="chromeHidden"
       :explore-enabled="exploreEnabled"
+      :ready="ready"
       :explore-disabled-reason="exploreDisabledReason"
       :tts-enabled="ttsEnabled"
       :tts-disabled-reason="ttsDisabledReason"

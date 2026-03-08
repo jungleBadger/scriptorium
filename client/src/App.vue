@@ -1464,6 +1464,7 @@ useGlobalShortcuts({
         :voice-id="readerSettings.voiceId"
         :is-exploring="isExploring"
         :explore-error="exploreError"
+        :ready="serviceCapabilities.loaded"
         :explore-enabled="exploreEnabled"
         :explore-disabled-reason="exploreUnavailableReason"
         :tts-enabled="ttsEnabled"
