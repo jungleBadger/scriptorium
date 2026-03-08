@@ -17,6 +17,10 @@ const ERROR_MESSAGE_BY_CODE = {
   OLLAMA_TIMEOUT: "Ollama timed out while generating the answer. Please retry.",
   ASK_BAD_REQUEST: "Could not process this ask request. Please adjust it and try again.",
   ASK_INTERNAL_ERROR: "Ask service is temporarily unavailable. Please try again.",
+  FEEDBACK_BAD_REQUEST: "Please review the feedback form and try again.",
+  FEEDBACK_TOO_LARGE: "This feedback submission is too large. Please shorten it and retry.",
+  FEEDBACK_COOLDOWN: "Please wait a moment before sending another message.",
+  FEEDBACK_UNAVAILABLE: "Feedback is temporarily unavailable. Please try again later.",
 };
 
 const CONTEXT_FALLBACKS = {
@@ -27,6 +31,7 @@ const CONTEXT_FALLBACKS = {
   entityDetail: "Could not load entity details right now. Please try again.",
   search: "Could not run this search right now. Please try again.",
   ask: "Could not explore this passage right now. Please try again.",
+  feedback: "Could not send feedback right now. Please try again.",
 };
 
 export function getApiErrorMessage(err, { context = "generic" } = {}) {
@@ -179,4 +184,12 @@ export async function searchEntities({ q, type, limit = 20, offset = 0 }) {
   if (Number.isFinite(limit)) params.set("limit", String(limit));
   if (Number.isFinite(offset)) params.set("offset", String(offset));
   return request(`/api/entities?${params.toString()}`);
+}
+
+export async function submitFeedback(payload) {
+  return request("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
