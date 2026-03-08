@@ -5,6 +5,35 @@ import { getPool } from "../services/pool.js";
 import { checkGeminiHealth } from "../services/geminiClient.js";
 import { checkVoiceAIHealth, getVoiceAIConfig } from "../services/ttsService.js";
 
+function getFeedbackHealth(postgresReady) {
+  const configured = Boolean(String(process.env.FEEDBACK_IP_HASH_SECRET || "").trim());
+
+  if (!configured) {
+    return {
+      available: false,
+      provider: "internal",
+      code: "FEEDBACK_NOT_CONFIGURED",
+      message: "Feedback intake is not configured.",
+    };
+  }
+
+  if (!postgresReady) {
+    return {
+      available: false,
+      provider: "internal",
+      code: "POSTGRES_UNAVAILABLE",
+      message: "Feedback storage is unavailable.",
+    };
+  }
+
+  return {
+    available: true,
+    provider: "internal",
+    code: "FEEDBACK_OK",
+    message: "Feedback intake is ready.",
+  };
+}
+
 async function healthHandler(req, reply) {
   const { endpoint: voiceAIEndpoint } = getVoiceAIConfig();
 
@@ -53,10 +82,14 @@ async function healthHandler(req, reply) {
       code:      status.voice_ai.code,
       message:   status.voice_ai.message,
     },
+    feedback: getFeedbackHealth(status.postgres),
   };
 
   const coreReady          = status.postgres;
-  const allFeaturesAvailable = features.explore.available && features.read_aloud.available;
+  const allFeaturesAvailable =
+    features.explore.available &&
+    features.read_aloud.available &&
+    features.feedback.available;
 
   reply.status(coreReady ? 200 : 503).send({
     status: coreReady && allFeaturesAvailable ? "ok" : "degraded",

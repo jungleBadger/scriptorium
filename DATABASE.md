@@ -9,6 +9,7 @@ This document describes the current PostgreSQL schema used by Scriptorium.
 - Extensions used:
 - `vector` for `chunks.embedding` and vector search
 - `pg_trgm` for trigram indexes and similarity search
+- `pgcrypto` for `feedback_reports.id` UUID generation
 
 ## Migration Files
 
@@ -22,6 +23,9 @@ The SQL files live in `ingest/sql` and are applied in this logical order:
 6. `006_chapter_payload_example_gen_1.sql` - example query only (no schema changes)
 7. `007_openbible_extended.sql` - normalized OpenBible tables + link tables + indexes
 8. `008_chapter_explanations.sql` - chapter explanation storage
+9. `009_perf_indexes.sql` - targeted performance indexes
+10. `010_create_cloud_user.sql` - optional cloud runtime role bootstrap
+11. `011_feedback_reports.sql` - anonymous feedback/reporting intake
 
 ## Table Schemas
 
@@ -155,6 +159,23 @@ The SQL files live in `ingest/sql` and are applied in this logical order:
 - `input_payload` (`JSONB`), `output_json` (`JSONB`)
 - `error_text`, `duration_ms`, `generated_at`
 
+### Feedback Reports
+
+### `feedback_reports`
+- Primary key: `id` (`UUID`)
+- Columns:
+- `kind`, `status`, `target_type`
+- `translation`, `book_id`, `chapter`, `verse_start`, `verse_end`, `entity_id`
+- `user_message`, `suggested_fix`, `content_snapshot`
+- `generation_metadata` (`JSONB`), `page_context` (`JSONB`)
+- `contact_email`, `ip_hash`
+- `created_at`, `reviewed_at`, `resolved_at`
+- Notes:
+- Anonymous by default; raw IPs are not stored
+- `ip_hash` stores a salted one-way SHA-256 hash derived server-side
+- `kind` is constrained to `content_report|bug_report|product_feedback`
+- `status` is constrained to `new|triaged|in_progress|resolved|dismissed`
+
 ## Index Inventory
 
 ### `verses`
@@ -196,6 +217,15 @@ The SQL files live in `ingest/sql` and are applied in this logical order:
 - `ix_chapter_explanations_generated_at`: `(generated_at DESC)`
 - `ix_chapter_explanations_status`: `(status)`
 
+### Feedback reports
+- `ix_feedback_reports_status`: `(status)`
+- `ix_feedback_reports_kind`: `(kind)`
+- `ix_feedback_reports_created_at`: `(created_at DESC)`
+- `ix_feedback_reports_book_chapter`: `(book_id, chapter)`
+- `ix_feedback_reports_target_type`: `(target_type)`
+- `ix_feedback_reports_ip_hash`: `(ip_hash)`
+- `ix_feedback_reports_new_created_at`: `(created_at DESC)` where `status = 'new'`
+
 ## Relationship Overview
 
 - `entities` has many `entity_aliases`, `entity_verses`, and `entity_*_links`.
@@ -204,3 +234,4 @@ The SQL files live in `ingest/sql` and are applied in this logical order:
 - `entity_modern_links` ties canonical entities to normalized OpenBible modern records.
 - `entity_source_links`, `entity_image_links`, `entity_geometry_links` attach provenance/media/geometry to canonical entities.
 - `chapter_explanations` stores generated chapter summaries keyed by translation/book/chapter/model/prompt version.
+- `feedback_reports` stores anonymous product feedback and AI-content reports for SQL-first review workflows.
