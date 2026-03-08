@@ -44,6 +44,7 @@ const libraryOpen    = ref(false); // true = Library drawer open
 const insightsOpen   = ref(false); // true = Insights drawer open
 
 function readStoredJson(key, fallback = null) {
+  if (typeof window === "undefined" || !window.localStorage) return fallback;
   try {
     return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback;
   } catch {
@@ -52,6 +53,7 @@ function readStoredJson(key, fallback = null) {
 }
 
 function writeStoredJson(key, value) {
+  if (typeof window === "undefined" || !window.localStorage) return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
@@ -68,6 +70,8 @@ function loadLayoutPrefs() {
   libraryOpen.value = false;
   if (typeof savedLayout?.insightsPinned === "boolean") insightsPinned.value = savedLayout.insightsPinned;
 }
+
+loadLayoutPrefs();
 
 watch(insightsPinned, () => {
   writeStoredJson(LS_LAYOUT, { insightsPinned: insightsPinned.value });
@@ -98,9 +102,28 @@ const insightsDrawerOpen = computed(() => {
   return insightsOpen.value;
 });
 
+const libraryColumnMounted = ref(showLibraryColumn.value);
+const insightsColumnMounted = ref(showInsightsColumn.value);
+
+watch(showLibraryColumn, (next) => {
+  if (next) libraryColumnMounted.value = true;
+});
+
+watch(showInsightsColumn, (next) => {
+  if (next) insightsColumnMounted.value = true;
+});
+
+function onLibraryColumnAfterLeave() {
+  libraryColumnMounted.value = false;
+}
+
+function onInsightsColumnAfterLeave() {
+  insightsColumnMounted.value = false;
+}
+
 const gridClass = computed(() => {
-  const lib = showLibraryColumn.value;
-  const ins = showInsightsColumn.value;
+  const lib = libraryColumnMounted.value;
+  const ins = insightsColumnMounted.value;
   if (lib && ins)  return "workspace-grid--3col";
   if (lib && !ins) return "workspace-grid--lib-reader";
   if (!lib && ins) return "workspace-grid--reader-ins";
@@ -487,7 +510,6 @@ watch(
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
-  loadLayoutPrefs();
   const savedSettings = readStoredJson(LS_READER_SETTINGS, null);
   if (savedSettings && typeof savedSettings === "object") {
     Object.assign(readerSettings, savedSettings);
@@ -1322,16 +1344,18 @@ useGlobalShortcuts({
     <main class="workspace-grid" :class="gridClass">
 
       <!-- ── Library column (desktop/tablet pinned) ── -->
-      <section v-if="showLibraryColumn" class="surface-card library-column">
-        <LibrarySidebar
-          :books="displayBooks"
-          :current-book-id="bookId"
-          :current-chapter="chapter"
-          :translation="translation"
-          @navigate="onLibraryNavigate"
-          @close="libraryPinned = false"
-        />
-      </section>
+      <Transition name="reader-panel-left" @after-leave="onLibraryColumnAfterLeave">
+        <section v-if="showLibraryColumn" class="surface-card library-column">
+          <LibrarySidebar
+            :books="displayBooks"
+            :current-book-id="bookId"
+            :current-chapter="chapter"
+            :translation="translation"
+            @navigate="onLibraryNavigate"
+            @close="libraryPinned = false"
+          />
+        </section>
+      </Transition>
 
       <!-- ── Reader ── -->
       <ReaderPane
@@ -1384,31 +1408,33 @@ useGlobalShortcuts({
       />
 
       <!-- ── Insights column (desktop/tablet pinned) ── -->
-      <section v-if="showInsightsColumn" class="surface-card context-column">
-        <ContextPane
-          :current-view="currentView"
-          :loading="readerLoading"
-          :can-go-back="canGoBack"
-          :stack-depth="stackDepth"
-          :selected-entity-id="selectedEntityId"
-          :chapter-entities="chapterContextEntitiesForInsights"
-          :book-name="activeBookName"
-          :chapter="chapter"
-          :chapter-total="activeBook?.chapters || null"
-          :verse-count="chapterData?.verses?.length || 0"
-          :selected-entity-type="selectedEntitySource?.type || null"
-          :has-selection="readerHasSelection"
-          :selection-label="readerSelectionLabel"
-          :show-selection-explore-starter="showSelectionExploreStarter"
-          @go-back="goBack"
-          @clear-context="onClearContext"
-          @clear-selection="onClearSelection"
-          @quick-explore="onQuickExploreChip"
-          @select-entity="onSelectEntity"
-          @open-reference="onOpenReference"
-          @open-entity="onOpenEntity"
-        />
-      </section>
+      <Transition name="reader-panel-right" @after-leave="onInsightsColumnAfterLeave">
+        <section v-if="showInsightsColumn" class="surface-card context-column">
+          <ContextPane
+            :current-view="currentView"
+            :loading="readerLoading"
+            :can-go-back="canGoBack"
+            :stack-depth="stackDepth"
+            :selected-entity-id="selectedEntityId"
+            :chapter-entities="chapterContextEntitiesForInsights"
+            :book-name="activeBookName"
+            :chapter="chapter"
+            :chapter-total="activeBook?.chapters || null"
+            :verse-count="chapterData?.verses?.length || 0"
+            :selected-entity-type="selectedEntitySource?.type || null"
+            :has-selection="readerHasSelection"
+            :selection-label="readerSelectionLabel"
+            :show-selection-explore-starter="showSelectionExploreStarter"
+            @go-back="goBack"
+            @clear-context="onClearContext"
+            @clear-selection="onClearSelection"
+            @quick-explore="onQuickExploreChip"
+            @select-entity="onSelectEntity"
+            @open-reference="onOpenReference"
+            @open-entity="onOpenEntity"
+          />
+        </section>
+      </Transition>
     </main>
 
     <!-- ── Library drawer (mobile / tablet / unpinned desktop) ── -->

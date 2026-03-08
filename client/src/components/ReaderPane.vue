@@ -520,7 +520,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section ref="readerPaneRef" class="surface-card reader-pane">
+  <section
+    ref="readerPaneRef"
+    class="surface-card reader-pane"
+    :class="{
+      'reader-pane--chrome-hidden': chromeHidden,
+      'reader-pane--left-panel-open': libraryActive,
+      'reader-pane--right-panel-open': insightsActive,
+    }"
+  >
     <GlobalTopBar
       :translation="translation"
       :available-translations="availableTranslations"
