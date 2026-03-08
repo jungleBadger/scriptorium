@@ -43,7 +43,7 @@ function onClose() {
 
 <template>
   <Transition name="mini-player">
-    <div v-if="visible" class="reader-mini-player" role="group" :aria-label="t('tts.miniPlayer.label')">
+    <div v-show="visible" class="reader-mini-player" :class="{ 'reader-mini-player--paused': tts.state.paused }" role="group" :aria-label="t('tts.miniPlayer.label')">
       <div class="mini-player-main">
         <div class="mini-player-meta">
           <span class="mini-player-icon" aria-hidden="true">

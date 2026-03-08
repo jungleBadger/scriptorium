@@ -164,7 +164,7 @@ const selectedEntityVerseSet = computed(() => {
 const selectionRange = computed(() => {
   const start = Number(props.selectionStartVerse);
   const end = Number(props.selectionEndVerse);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 1 || end < 1) return null;
   return start <= end ? { start, end } : { start: end, end: start };
 });
 

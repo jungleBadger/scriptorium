@@ -876,7 +876,7 @@ function onVerseChange(event) {
 function onSelectVerse(verse) {
   const verseNumber = Number(verse);
   if (!Number.isFinite(verseNumber)) return;
-  if (activeVerse.value === verseNumber && readerUx.state.selection.mode === "single") {
+  if (activeVerse.value === verseNumber && (readerUx.state.selection.mode === "single" || readerUx.state.selection.mode === "range")) {
     activeVerse.value = null;
     readerUx.setSelectionNone();
     return;

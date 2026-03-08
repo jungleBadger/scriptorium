@@ -149,6 +149,7 @@
 }
 
 [data-theme="dark"] {
+  color-scheme: dark;
   --glass-warm: rgba(24, 21, 18, 0.68);
   --glass-warm-fallback: rgba(24, 21, 18, 0.9);
   --glass-warm-strong: rgba(24, 21, 18, 0.82);
@@ -640,6 +641,11 @@ body {
   border-radius: 0.25rem;
 }
 
+[data-theme="dark"] .chapterbar-chapter-select option {
+  background: #ffffff;
+  color: #1a1a1a;
+}
+
 /* Active verse indicator — small, muted, animate in/out */
 .chapterbar-verse-indicator {
   margin: 0;
@@ -769,6 +775,7 @@ body {
 .reader-scroll {
   --reader-topbar-offset: var(--sectionHeaderH);
   --reader-sticky-header-offset: calc(var(--reader-topbar-offset) + var(--sectionHeaderH));
+  --reader-floating-offset: 0px;
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
@@ -777,7 +784,9 @@ body {
   overscroll-behavior: contain;
   position: relative;
   padding: 0;
+  padding-bottom: var(--reader-floating-offset);
   scroll-padding-top: calc(var(--reader-sticky-header-offset) + var(--space-tight));
+  transition: padding-bottom 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Fixed spacer reserves room for the overlaid top bar without affecting sticky positioning. */
@@ -817,7 +826,7 @@ body {
 }
 
 .reader-content--tts-active {
-  padding-bottom: 5.35rem;
+  --reader-floating-offset: 5.35rem;
 }
 
 .reader-content--chrome-hidden {
@@ -974,6 +983,21 @@ body {
 .verse-row--range-middle {
   background: var(--reader-selection-bg-soft);
   border-left-color: var(--reader-selection-border-soft);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .verse-row--selected {
+    transition: background-color 150ms ease-out, border-left-color 150ms ease-out;
+  }
+
+  .verse-row--range-start,
+  .verse-row--range-end {
+    transition: background-color 150ms ease-out, border-left-color 150ms ease-out;
+  }
+
+  .verse-row--range-middle {
+    transition: background-color 150ms ease-out, border-left-color 150ms ease-out;
+  }
 }
 
 .verse-button {
@@ -2087,6 +2111,12 @@ body {
   border-color: var(--control-border-strong);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .chip-button:not([disabled]):active {
+    transform: scale(0.96);
+  }
+}
+
 .ask-answer-text {
   white-space: pre-wrap;
 }
@@ -2746,6 +2776,13 @@ body {
   font-weight: 700;
 }
 
+.library-chapter-btn--active:hover {
+  background: var(--library-chapter-btn-active-bg);
+  border-color: var(--library-chapter-btn-active-border);
+  color: var(--library-chapter-btn-active-text);
+  filter: brightness(1.08);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    DRAWER SHELL
    ══════════════════════════════════════════════════════════════════════════ */
@@ -2953,6 +2990,8 @@ body {
   background: var(--mini-player-bg);
   box-shadow: var(--mini-player-shadow);
   backdrop-filter: blur(8px);
+  transform-origin: center bottom;
+  backface-visibility: hidden;
 }
 
 .mini-player-main {
@@ -3060,32 +3099,64 @@ body {
   border-radius: inherit;
   background: linear-gradient(90deg, var(--mini-progress-start), var(--mini-progress-end));
   transform-origin: left center;
-  transition: transform 80ms linear;
+  transition: transform 80ms linear, opacity 200ms ease;
 }
 
-.mini-player-enter-active {
+.reader-mini-player--paused .mini-player-progress-bar {
+  opacity: 0.4;
+}
+
+.mini-player-enter-active,
+.mini-player-leave-active {
   transition:
-    opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform;
+    opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform, filter;
 }
 
 .mini-player-leave-active {
-  transition:
-    opacity 200ms ease,
-    transform 200ms ease;
-  will-change: opacity, transform;
   pointer-events: none;
 }
 
-.mini-player-enter-from {
-  opacity: 0;
-  transform: translateY(10px);
-}
-
+.mini-player-enter-from,
 .mini-player-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translate3d(0, 18px, 0) scale(0.985);
+  filter: blur(7px) saturate(0.94);
+}
+
+.mini-player-enter-to,
+.mini-player-leave-from {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  filter: blur(0) saturate(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-content,
+  .reader-scroll {
+    transition: padding-bottom 140ms linear;
+  }
+
+  .mini-player-enter-active,
+  .mini-player-leave-active {
+    transition: opacity 140ms linear;
+  }
+
+  .mini-player-enter-from,
+  .mini-player-leave-to {
+    opacity: 0;
+    transform: none;
+    filter: none;
+  }
+
+  .mini-player-enter-to,
+  .mini-player-leave-from {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
 }
 
 /* Theme-aware overrides for Tailwind utility classes used in templates */
