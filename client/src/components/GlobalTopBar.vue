@@ -51,83 +51,85 @@ function openSettings() {
 <template>
   <header class="global-top-bar" :class="{ 'global-top-bar--hidden': chromeHidden }">
     <div class="global-top-bar-row">
-      <button
-        class="nav-icon-btn panel-toggle-btn group flex items-center gap-2"
-        type="button"
-        :aria-pressed="libraryActive"
-        :class="{ 'panel-toggle-btn--active': libraryActive }"
-        :aria-label="t('nav.toggleLibrary')"
-        :title="t('nav.library') + ' (L)'"
-        @click="emit('toggle-library')"
-      >
-        <span class="panel-toggle-icon text-neutral-600 transition-colors group-hover:text-neutral-900" aria-hidden="true">
-          <Icon name="BookOpen" :size="20" />
-        </span>
-        <span class="panel-toggle-label">{{ t('nav.library') }}</span>
-      </button>
+      <div class="global-top-bar-group global-top-bar-group--left">
+        <button
+          class="nav-icon-btn panel-toggle-btn gtb-panel-toggle"
+          type="button"
+          :aria-pressed="libraryActive"
+          :class="{ 'panel-toggle-btn--active': libraryActive }"
+          :aria-label="t('nav.toggleLibrary')"
+          :title="t('nav.library') + ' (L)'"
+          @click="emit('toggle-library')"
+        >
+          <span class="panel-toggle-icon gtb-icon-slot" aria-hidden="true">
+            <Icon name="BookOpen" :size="18" />
+          </span>
+          <span class="panel-toggle-label">{{ t('nav.library') }}</span>
+        </button>
+      </div>
 
-      <input
-        v-if="exploreEnabled"
-        :value="quickQuery"
-        type="text"
-        class="field-input gtb-explore-input"
-        :placeholder="t('nav.explorePlaceholder')"
-        :aria-label="t('nav.explore')"
-        :disabled="loading"
-        :aria-busy="isExploring ? 'true' : 'false'"
-        title="Focus search (/)"
-        @input="emit('quick-query-change', $event.target.value)"
-        @keyup.enter.prevent="emit('explore-query')"
-      />
-      <button
-        v-if="exploreEnabled"
-        class="primary-btn compact gtb-explore-btn flex items-center gap-2"
-        type="button"
-        :disabled="loading || isExploring"
-        :title="t('nav.exploreTitle')"
-        :aria-busy="isExploring ? 'true' : 'false'"
-        @click="emit('explore-query')"
-      >
-        <span class="inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
-          <span v-if="isExploring" class="gtb-spinner"></span>
-          <Icon v-else name="Compass" :size="16" class="gtb-explore-btn__icon" />
-        </span>
-        <span>{{ isExploring ? t('nav.exploring') : t('nav.explore') }}</span>
-      </button>
-
-      <span class="gtb-spacer" aria-hidden="true"></span>
-
-      <button
-        ref="gearBtnRef"
-        class="nav-icon-btn reader-settings-btn group"
-        type="button"
-        :aria-pressed="showSettings"
-        :aria-label="t('nav.settings')"
-        :title="t('nav.settings') + ' (Esc to close)'"
-        @click="openSettings"
-      >
-        <Icon
-          name="Settings"
-          :size="20"
-          class="text-neutral-600 transition-colors group-hover:text-neutral-900"
-          aria-hidden="true"
+      <div v-if="exploreEnabled" class="global-top-bar-group global-top-bar-group--center">
+        <input
+          :value="quickQuery"
+          type="text"
+          class="field-input gtb-explore-input"
+          :placeholder="t('nav.explorePlaceholder')"
+          :aria-label="t('nav.explore')"
+          :disabled="loading"
+          :aria-busy="isExploring ? 'true' : 'false'"
+          title="Focus search (/)"
+          @input="emit('quick-query-change', $event.target.value)"
+          @keyup.enter.prevent="emit('explore-query')"
         />
-      </button>
+        <button
+          class="primary-btn compact gtb-explore-btn"
+          type="button"
+          :disabled="loading || isExploring"
+          :title="t('nav.exploreTitle')"
+          :aria-busy="isExploring ? 'true' : 'false'"
+          @click="emit('explore-query')"
+        >
+          <span class="gtb-icon-slot gtb-icon-slot--small" aria-hidden="true">
+            <span v-if="isExploring" class="gtb-spinner"></span>
+            <Icon v-else name="Compass" :size="15" class="gtb-explore-btn__icon" />
+          </span>
+          <span>{{ isExploring ? t('nav.exploring') : t('nav.explore') }}</span>
+        </button>
+      </div>
 
-      <button
-        class="nav-icon-btn panel-toggle-btn group flex items-center gap-2"
-        type="button"
-        :aria-pressed="insightsActive"
-        :class="{ 'panel-toggle-btn--active': insightsActive }"
-        :aria-label="t('nav.toggleInsights')"
-        :title="t('nav.insights') + ' (Alt+I)'"
-        @click="emit('toggle-insights')"
-      >
-        <span class="panel-toggle-icon text-neutral-600 transition-colors group-hover:text-neutral-900" aria-hidden="true">
-          <Icon name="Sparkles" :size="20" />
-        </span>
-        <span class="panel-toggle-label">{{ t('nav.insights') }}</span>
-      </button>
+      <div class="global-top-bar-group global-top-bar-group--right">
+        <button
+          ref="gearBtnRef"
+          class="nav-icon-btn reader-settings-btn"
+          type="button"
+          :aria-pressed="showSettings"
+          :aria-label="t('nav.settings')"
+          :title="t('nav.settings') + ' (Esc to close)'"
+          @click="openSettings"
+        >
+          <span class="gtb-icon-slot" aria-hidden="true">
+            <Icon
+              name="Settings"
+              :size="18"
+            />
+          </span>
+        </button>
+
+        <button
+          class="nav-icon-btn panel-toggle-btn gtb-panel-toggle gtb-panel-toggle--secondary"
+          type="button"
+          :aria-pressed="insightsActive"
+          :class="{ 'panel-toggle-btn--active': insightsActive }"
+          :aria-label="t('nav.toggleInsights')"
+          :title="t('nav.insights') + ' (Alt+I)'"
+          @click="emit('toggle-insights')"
+        >
+          <span class="panel-toggle-icon gtb-icon-slot" aria-hidden="true">
+            <Icon name="Sparkles" :size="18" />
+          </span>
+          <span class="panel-toggle-label">{{ t('nav.insights') }}</span>
+        </button>
+      </div>
     </div>
 
     <Teleport to="body">
