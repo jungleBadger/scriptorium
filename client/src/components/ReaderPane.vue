@@ -40,6 +40,7 @@ const props = defineProps({
   exploreDisabledReason: { type: String, default: null },
   ttsEnabled: { type: Boolean, default: true },
   ttsDisabledReason: { type: String, default: null },
+  feedbackEnabled: { type: Boolean, default: true },
   libraryActive: { type: Boolean, default: false },
   insightsActive: { type: Boolean, default: false },
 });
@@ -59,6 +60,7 @@ const emit = defineEmits([
   'explore-query',
   'quick-query-change',
   'settings-change',
+  'open-feedback',
   'toggle-library',
   'toggle-insights',
   'set-chrome-hidden',
@@ -542,12 +544,14 @@ onUnmounted(() => {
       :explore-disabled-reason="exploreDisabledReason"
       :tts-enabled="ttsEnabled"
       :tts-disabled-reason="ttsDisabledReason"
+      :feedback-enabled="feedbackEnabled"
       :library-active="libraryActive"
       :insights-active="insightsActive"
       @translation-change="$emit('translation-change', $event)"
       @quick-query-change="$emit('quick-query-change', $event)"
       @explore-query="$emit('explore-query')"
       @settings-change="$emit('settings-change', $event)"
+      @open-feedback="$emit('open-feedback')"
       @toggle-library="$emit('toggle-library')"
       @toggle-insights="$emit('toggle-insights')"
     />

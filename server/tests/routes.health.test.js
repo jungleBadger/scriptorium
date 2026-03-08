@@ -1,7 +1,7 @@
 // server/tests/routes.health.test.js
 // HTTP-level tests for GET /health and GET /api/health — all external deps mocked.
 
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import Fastify from "fastify";
 
 vi.mock("../services/pool.js", () => ({
@@ -43,8 +43,13 @@ async function buildApp() {
   return app;
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("GET /api/health", () => {
   it("returns 200 with status ok when all services are healthy", async () => {
+    vi.stubEnv("FEEDBACK_IP_HASH_SECRET", "test-feedback-secret");
     mockPool(true);
     checkGeminiHealth.mockReturnValue(GEMINI_OK);
     checkVoiceAIHealth.mockResolvedValue(VOICE_AI_OK);
@@ -59,9 +64,11 @@ describe("GET /api/health", () => {
     expect(body.postgres).toBe(true);
     expect(body.features.explore.available).toBe(true);
     expect(body.features.read_aloud.available).toBe(true);
+    expect(body.features.feedback.available).toBe(true);
   });
 
   it("returns 503 with status degraded when postgres is down", async () => {
+    vi.stubEnv("FEEDBACK_IP_HASH_SECRET", "test-feedback-secret");
     mockPool(false);
     checkGeminiHealth.mockReturnValue(GEMINI_OK);
     checkVoiceAIHealth.mockResolvedValue(VOICE_AI_OK);
@@ -71,10 +78,13 @@ describe("GET /api/health", () => {
     const res = await app.inject({ method: "GET", url: "/api/health" });
 
     expect(res.statusCode).toBe(503);
-    expect(JSON.parse(res.body).postgres).toBe(false);
+    const body = JSON.parse(res.body);
+    expect(body.postgres).toBe(false);
+    expect(body.features.feedback.available).toBe(false);
   });
 
   it("returns 200 with status degraded when gemini is not configured", async () => {
+    vi.stubEnv("FEEDBACK_IP_HASH_SECRET", "test-feedback-secret");
     mockPool(true);
     checkGeminiHealth.mockReturnValue(GEMINI_NOT_CONFIGURED);
     checkVoiceAIHealth.mockResolvedValue(VOICE_AI_OK);
@@ -90,6 +100,7 @@ describe("GET /api/health", () => {
   });
 
   it("returns 200 with status degraded when voice_ai is not configured", async () => {
+    vi.stubEnv("FEEDBACK_IP_HASH_SECRET", "test-feedback-secret");
     mockPool(true);
     checkGeminiHealth.mockReturnValue(GEMINI_OK);
     checkVoiceAIHealth.mockResolvedValue(VOICE_AI_NOT_CONFIGURED);
@@ -102,5 +113,26 @@ describe("GET /api/health", () => {
     const body = JSON.parse(res.body);
     expect(body.status).toBe("degraded");
     expect(body.features.read_aloud.available).toBe(false);
+  });
+
+  it("returns 200 with status degraded when feedback is not configured", async () => {
+    vi.stubEnv("FEEDBACK_IP_HASH_SECRET", "");
+    mockPool(true);
+    checkGeminiHealth.mockReturnValue(GEMINI_OK);
+    checkVoiceAIHealth.mockResolvedValue(VOICE_AI_OK);
+    getVoiceAIConfig.mockReturnValue({ endpoint: "https://api.voice.ai" });
+
+    const app = await buildApp();
+    const res = await app.inject({ method: "GET", url: "/api/health" });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.status).toBe("degraded");
+    expect(body.features.feedback).toEqual({
+      available: false,
+      provider: "internal",
+      code: "FEEDBACK_NOT_CONFIGURED",
+      message: "Feedback intake is not configured.",
+    });
   });
 });

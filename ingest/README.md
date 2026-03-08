@@ -325,10 +325,34 @@ Validation and retry behavior:
 
 `ingest/scripts/migrate_to_supabase.sh` dumps data from the local Postgres DB and restores it to Supabase. Tables and indexes must already exist in the target (run SQL migrations first).
 
+For chapter explanation refreshes after running the overnight enrichment pipeline, prefer the Node sync script below. It works from PowerShell, does not require `psql`/`bash`, and upserts changed rows instead of skipping them.
+
+### Chapter explanation sync (recommended after enrichment runs)
+
+PowerShell:
+
+```powershell
+$env:SUPABASE_DATABASE_URL="postgres://postgres.PROJECT_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres"
+npm run ingest:chapters:sync:supabase
+```
+
+Optional filters:
+
+```powershell
+$env:SUPABASE_DATABASE_URL="postgres://postgres.PROJECT_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres"
+npm run ingest:chapters:sync:supabase -- --translation WEBU --status ready
+```
+
+- Uses local Postgres from `LOCAL_*` or `PG*` env vars.
+- Prefer `SUPABASE_DATABASE_URL` copied from Supabase `Connect` -> `Session pooler`.
+- Upserts on `(translation, book_id, chapter, model, prompt_version)`.
+- Updates changed `ready`/`error` rows instead of `DO NOTHING`.
+
 ### Full load (first-time)
 
 ```bash
-SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+SUPABASE_DATABASE_URL='postgresql://postgres.PROJECT_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres' \
+bash ingest/scripts/migrate_to_supabase.sh
 ```
 
 > **Warning:** Full-load mode assumes target tables are **empty**. Restoring over existing rows will crash (`COPY` has no conflict handling). Verify target state before running.
@@ -338,12 +362,15 @@ SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
 Use `DELTA=1` to push only new rows for specific tables without touching existing data:
 
 ```bash
-DELTA=1 TABLES=chapter_explanations SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+DELTA=1 TABLES=chapter_explanations \
+SUPABASE_DATABASE_URL='postgresql://postgres.PROJECT_REF:YOUR_PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres' \
+bash ingest/scripts/migrate_to_supabase.sh
 ```
 
 - `DELTA=1` switches from `COPY` to `INSERT … ON CONFLICT DO NOTHING` — existing rows in the target are left untouched (target wins).
 - `TABLES=` is **required** with `DELTA=1`. Omitting it is a hard error: tables with no natural unique constraint (beyond a serial id) could silently accumulate duplicate rows if local and remote ids have drifted.
 - Use `TABLES=` as a comma-separated list to scope multiple tables in one run: `TABLES=chapter_explanations,entity_verses`.
+- Prefer `SUPABASE_DATABASE_URL` copied from Supabase `Connect` -> `Session pooler`. The direct `db.<project-ref>.supabase.co` host may be IPv6-only.
 
 ### Other options
 

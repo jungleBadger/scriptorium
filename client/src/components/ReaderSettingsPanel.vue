@@ -11,9 +11,10 @@ const props = defineProps({
   voiceId: { type: String, default: '' },
   ttsEnabled: { type: Boolean, default: true },
   ttsDisabledReason: { type: String, default: null },
+  feedbackEnabled: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(['close', 'settings-change', 'translation-change']);
+const emit = defineEmits(['close', 'settings-change', 'translation-change', 'open-feedback']);
 
 const localSettings = reactive({
   fontSize: 'md',
@@ -264,6 +265,27 @@ watch(
           type="button"
           @click="update('theme', 'dark')"
         >{{ t('settings.themes.dark') }}</button>
+      </div>
+    </div>
+
+    <div class="settings-group settings-support-group">
+      <p class="settings-label">{{ t('settings.support') }}</p>
+      <div v-if="feedbackEnabled" class="settings-support-block">
+        <p class="settings-help-text settings-support-copy">{{ t('settings.feedbackHelp') }}</p>
+        <button class="ghost-btn compact settings-support-btn" type="button" @click="emit('open-feedback')">
+          {{ t('settings.sendFeedback') }}
+        </button>
+      </div>
+      <div class="settings-support-block" :class="{ 'settings-support-block--secondary': feedbackEnabled }">
+        <p class="settings-help-text settings-support-copy">{{ t('settings.githubNote') }}</p>
+        <a
+          class="ghost-btn compact settings-link-btn settings-support-btn"
+          href="https://github.com/jungleBadger/scriptorium"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {{ t('settings.viewOnGitHub') }}
+        </a>
       </div>
     </div>
   </div>

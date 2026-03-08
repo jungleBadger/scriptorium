@@ -104,7 +104,17 @@ R2_SECRET_ACCESS_KEY=your-r2-secret-key
 
 Add your voice IDs from the voice.ai dashboard to `server/data/voices.js`.
 
-12. Optional: install Ollama for chapter explanation enrichment (ingest pipeline only):
+12. Optional: configure anonymous feedback/reporting:
+
+Set the following environment variable (e.g. in a `.env` file):
+
+```
+FEEDBACK_IP_HASH_SECRET=replace-with-a-long-random-secret
+```
+
+`POST /api/feedback` uses this secret to store a salted SHA-256 `ip_hash` for abuse controls. Raw IP addresses are not stored.
+
+13. Optional: install Ollama for chapter explanation enrichment (ingest pipeline only):
 
 ```bash
 # Install Ollama (https://ollama.com/download), then:
@@ -442,5 +452,43 @@ Notes:
 - Audio is cached permanently in R2 (Bible text never changes). Cache key: `{bookId}/{chapter}/{verse}/{translation}/{voiceId}.mp3`.
 - Voice selection in the UI auto-switches language when the translation changes (e.g. PT1911 → Portuguese voice), but respects manual overrides.
 - Configure available voices in `server/data/voices.js`.
+
+### Anonymous Feedback
+
+Users can send anonymous feedback or report incorrect AI-generated content through `POST /api/feedback`.
+
+Example request:
+
+```bash
+curl -X POST http://localhost:3000/api/feedback \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "kind": "content_report",
+    "target_type": "chapter_summary",
+    "translation": "WEBU",
+    "book_id": "GEN",
+    "chapter": 1,
+    "user_message": "This summary reverses the order of events.",
+    "suggested_fix": "Light should appear before the sky.",
+    "content_snapshot": "The summary text the user saw",
+    "generation_metadata": { "model": "qwen3:8b" },
+    "page_context": { "surface": "chapter_summary", "reference": "GEN 1" }
+  }'
+```
+
+Response shape:
+
+```json
+{
+  "ok": true
+}
+```
+
+Notes:
+- Feedback is stored in Postgres table `feedback_reports`, not GitHub.
+- Submissions are anonymous by default; `contact_email` is optional.
+- The server stores a salted `ip_hash`, never the raw IP address.
+- Phase 1 abuse protections: route-level rate limiting, body-size limits, a honeypot field, short cooldown checks, and recent exact-duplicate suppression.
+- The UI includes a GitHub link for transparency and technical exploration only; GitHub is not the primary feedback intake.
 
 See [ingest/README.md](ingest/README.md) for detailed pipeline docs and environment variables.

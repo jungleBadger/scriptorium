@@ -14,6 +14,7 @@ import entityRoutes from "./routes/entities.js";
 import bookRoutes from "./routes/books.js";
 import chapterRoutes from "./routes/chapters.js";
 import ttsRoutes from "./routes/tts.js";
+import feedbackRoutes from "./routes/feedback.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -40,6 +41,7 @@ await app.register(entityRoutes);
 await app.register(bookRoutes);
 await app.register(chapterRoutes);
 await app.register(ttsRoutes);
+await app.register(feedbackRoutes);
 
 // ---------- Serve built client SPA ----------
 const clientDist = path.join(__dirname, "..", "client", "dist");

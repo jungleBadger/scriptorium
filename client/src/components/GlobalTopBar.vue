@@ -19,6 +19,7 @@ defineProps({
   exploreDisabledReason: { type: String, default: null },
   ttsEnabled: { type: Boolean, default: true },
   ttsDisabledReason: { type: String, default: null },
+  feedbackEnabled: { type: Boolean, default: true },
   libraryActive: { type: Boolean, default: false },
   insightsActive: { type: Boolean, default: false },
 });
@@ -28,6 +29,7 @@ const emit = defineEmits([
   "quick-query-change",
   "explore-query",
   "settings-change",
+  "open-feedback",
   "toggle-library",
   "toggle-insights",
 ]);
@@ -45,6 +47,11 @@ function openSettings() {
     };
   }
   showSettings.value = !showSettings.value;
+}
+
+function onOpenFeedback() {
+  showSettings.value = false;
+  emit("open-feedback");
 }
 </script>
 
@@ -140,6 +147,7 @@ function openSettings() {
         :voice-id="voiceId"
         :tts-enabled="ttsEnabled"
         :tts-disabled-reason="ttsDisabledReason"
+        :feedback-enabled="feedbackEnabled"
         :style="{
           position: 'fixed',
           top: settingsAnchor.top + 'px',
@@ -149,6 +157,7 @@ function openSettings() {
         @close="showSettings = false"
         @settings-change="emit('settings-change', $event)"
         @translation-change="emit('translation-change', $event)"
+        @open-feedback="onOpenFeedback"
       />
     </Teleport>
 

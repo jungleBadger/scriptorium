@@ -15,9 +15,10 @@ const { t } = useI18n();
 const props = defineProps({
   thread: { type: Object, required: true },
   chapterEntities: { type: Array, default: () => [] },
+  feedbackEnabled: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(["open-reference", "open-entity"]);
+const emit = defineEmits(["open-reference", "open-entity", "open-feedback"]);
 
 const entity = computed(() => props.thread.data || null);
 const enrichment = computed(() => entity.value?.metadata?.llm_enrichment || {});
@@ -264,6 +265,25 @@ function formatVerseHint(chapterVerses) {
   const prefix = verses.length === 1 ? t("threads.entityDetail.verse") : t("threads.entityDetail.verses");
   return `${prefix} ${ranges.join(", ")}`;
 }
+
+function reportEntityDescription() {
+  if (!hasEnrichedDescription.value || !description.value) return;
+  const metadata = { ...(enrichment.value || {}) };
+  delete metadata.description_rich;
+
+  emit("open-feedback", {
+    kind: "content_report",
+    source_label: t("feedback.sources.entityDetail"),
+    target_type: "entity_detail",
+    entity_id: entity.value?.id != null ? String(entity.value.id) : null,
+    content_snapshot: description.value,
+    generation_metadata: Object.keys(metadata).length ? metadata : null,
+    page_context: {
+      surface: "entity_detail",
+      entity_name: entity.value?.canonical_name || null,
+    },
+  });
+}
 </script>
 
 <template>
@@ -314,13 +334,22 @@ function formatVerseHint(chapterVerses) {
           </div>
         </div>
         <p class="result-text">{{ description }}</p>
-        <p
-          v-if="hasEnrichedDescription"
-          class="ai-disclaimer"
-          :title="enrichedDescriptionMetaTitle || null"
-        >
-          {{ t('threads.entityDetail.aiEnriched') }}
-        </p>
+        <div v-if="hasEnrichedDescription" class="ai-disclaimer-row">
+          <p
+            class="ai-disclaimer"
+            :title="enrichedDescriptionMetaTitle || null"
+          >
+            {{ t('threads.entityDetail.aiEnriched') }}
+          </p>
+          <button
+            v-if="feedbackEnabled"
+            class="inline-link-btn"
+            type="button"
+            @click="reportEntityDescription"
+          >
+            {{ t('feedback.actions.reportContent') }}
+          </button>
+        </div>
       </section>
 
       <section v-if="entity.lon != null && entity.lat != null" class="stack-block">

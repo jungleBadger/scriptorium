@@ -24,6 +24,7 @@ import { useReaderState } from "./composables/useReaderState.js";
 import { PT_BR_BOOK_NAMES } from "./data/bookNamesPtBr.js";
 import { useGlobalShortcuts } from "./composables/useGlobalShortcuts.js";
 import KeyboardShortcutsModal from "./components/KeyboardShortcutsModal.vue";
+import FeedbackModal from "./components/FeedbackModal.vue";
 
 const AVAILABLE_TRANSLATIONS = ["WEBU", "PT1911"];
 
@@ -184,6 +185,7 @@ const serviceCapabilities = reactive({
   features: {
     explore: true,
     readAloud: true,
+    feedback: true,
   },
   statuses: {
     ollama: null,
@@ -193,6 +195,7 @@ const serviceCapabilities = reactive({
 
 const exploreEnabled = computed(() => serviceCapabilities.loaded && serviceCapabilities.features.explore !== false);
 const ttsEnabled = computed(() => serviceCapabilities.loaded && serviceCapabilities.features.readAloud !== false);
+const feedbackEnabled = computed(() => serviceCapabilities.loaded && serviceCapabilities.features.feedback !== false);
 
 const exploreUnavailableReason = computed(() => {
   if (exploreEnabled.value) return null;
@@ -210,11 +213,14 @@ async function refreshFeatureAvailability() {
     const payload = await getHealth();
     const exploreAvailable = payload?.features?.explore?.available;
     const readAloudAvailable = payload?.features?.read_aloud?.available;
+    const feedbackAvailable = payload?.features?.feedback?.available;
 
     serviceCapabilities.features.explore =
       typeof exploreAvailable === "boolean" ? exploreAvailable : true;
     serviceCapabilities.features.readAloud =
       typeof readAloudAvailable === "boolean" ? readAloudAvailable : true;
+    serviceCapabilities.features.feedback =
+      typeof feedbackAvailable === "boolean" ? feedbackAvailable : true;
     serviceCapabilities.statuses.ollama = payload?.ollama || null;
     serviceCapabilities.statuses.voiceAi = payload?.voice_ai || null;
     serviceCapabilities.loaded = true;
@@ -249,6 +255,81 @@ function applySettingsCSSVars() {
 }
 
 function onSettingsChange(updated) { Object.assign(readerSettings, updated); }
+
+const feedbackModal = reactive({
+  open: false,
+  variant: "general",
+  payloadContext: {},
+});
+
+function buildFeedbackPageContext(extra = {}) {
+  const anchor = currentView.value?.anchor || buildAnchor();
+  return {
+    surface: extra.surface || "reader",
+    view: currentView.value?.type || null,
+    reference: anchor?.reference || null,
+    ...extra,
+  };
+}
+
+function openFeedbackModal(variant, payloadContext = {}) {
+  if (!feedbackEnabled.value) return;
+  feedbackModal.variant = variant;
+  feedbackModal.payloadContext = payloadContext;
+  feedbackModal.open = true;
+}
+
+function closeFeedbackModal() {
+  feedbackModal.open = false;
+}
+
+function onOpenGeneralFeedback() {
+  if (!feedbackEnabled.value) return;
+  const currentBookId = bookId.value || null;
+  openFeedbackModal("general", {
+    kind: "bug_report",
+    source_label: t("feedback.sources.general"),
+    translation: translation.value || null,
+    book_id: currentBookId,
+    chapter: currentBookId && Number.isFinite(chapter.value) ? chapter.value : null,
+    verse_start: null,
+    verse_end: null,
+    entity_id: null,
+    target_type: null,
+    content_snapshot: null,
+    generation_metadata: null,
+    page_context: buildFeedbackPageContext({ surface: "reader_settings" }),
+  });
+}
+
+function onOpenContentFeedback(context = {}) {
+  if (!feedbackEnabled.value) return;
+  const anchor = currentView.value?.anchor || buildAnchor();
+  const currentBookId = context.book_id ?? bookId.value ?? null;
+  const verseStart = context.verse_start ?? anchor?.verse_start ?? anchor?.verse ?? null;
+  const verseEnd = context.verse_end ?? anchor?.verse_end ?? anchor?.verse ?? null;
+
+  openFeedbackModal("content", {
+    kind: "content_report",
+    source_label: context.source_label || t("feedback.sources.general"),
+    target_type: context.target_type || null,
+    translation: context.translation ?? translation.value ?? null,
+    book_id: currentBookId,
+    chapter: context.chapter ?? (currentBookId && Number.isFinite(chapter.value) ? chapter.value : null),
+    verse_start: verseStart,
+    verse_end: verseEnd,
+    entity_id: context.entity_id ?? null,
+    content_snapshot: context.content_snapshot ?? null,
+    generation_metadata: context.generation_metadata ?? null,
+    page_context: buildFeedbackPageContext(context.page_context || {}),
+  });
+}
+
+watch(feedbackEnabled, (next) => {
+  if (!next && feedbackModal.open) {
+    feedbackModal.open = false;
+  }
+});
 
 // ── Search / explore options ───────────────────────────────────────────────
 const quickQuery = ref("");
@@ -1387,6 +1468,7 @@ useGlobalShortcuts({
         :explore-disabled-reason="exploreUnavailableReason"
         :tts-enabled="ttsEnabled"
         :tts-disabled-reason="ttsUnavailableReason"
+        :feedback-enabled="feedbackEnabled"
         :library-active="libraryActive"
         :insights-active="insightsActive"
         @select-verse="onSelectVerse"
@@ -1403,6 +1485,7 @@ useGlobalShortcuts({
         @explore-query="onExploreQuery"
         @quick-query-change="onQuickQueryChange"
         @settings-change="onSettingsChange"
+        @open-feedback="onOpenGeneralFeedback"
         @toggle-library="onToggleLibrary"
         @toggle-insights="onToggleInsights"
       />
@@ -1425,6 +1508,7 @@ useGlobalShortcuts({
             :has-selection="readerHasSelection"
             :selection-label="readerSelectionLabel"
             :show-selection-explore-starter="showSelectionExploreStarter"
+            :feedback-enabled="feedbackEnabled"
             @go-back="goBack"
             @clear-context="onClearContext"
             @clear-selection="onClearSelection"
@@ -1432,6 +1516,7 @@ useGlobalShortcuts({
             @select-entity="onSelectEntity"
             @open-reference="onOpenReference"
             @open-entity="onOpenEntity"
+            @open-feedback="onOpenContentFeedback"
           />
         </section>
       </Transition>
@@ -1476,6 +1561,7 @@ useGlobalShortcuts({
         :has-selection="readerHasSelection"
         :selection-label="readerSelectionLabel"
         :show-selection-explore-starter="showSelectionExploreStarter"
+        :feedback-enabled="feedbackEnabled"
         @go-back="goBack"
         @clear-context="onInsightsClearContext"
         @clear-selection="onClearSelection"
@@ -1483,6 +1569,7 @@ useGlobalShortcuts({
         @select-entity="onSelectEntity"
         @open-reference="onOpenReference"
         @open-entity="onOpenEntity"
+        @open-feedback="onOpenContentFeedback"
       />
     </InsightsSheet>
 
@@ -1508,6 +1595,7 @@ useGlobalShortcuts({
         :has-selection="readerHasSelection"
         :selection-label="readerSelectionLabel"
         :show-selection-explore-starter="showSelectionExploreStarter"
+        :feedback-enabled="feedbackEnabled"
         @go-back="goBack"
         @clear-context="onInsightsClearContext"
         @clear-selection="onClearSelection"
@@ -1515,11 +1603,18 @@ useGlobalShortcuts({
         @select-entity="onSelectEntity"
         @open-reference="onOpenReference"
         @open-entity="onOpenEntity"
+        @open-feedback="onOpenContentFeedback"
       />
     </DrawerShell>
     <KeyboardShortcutsModal
       v-if="showShortcutsModal"
       @close="showShortcutsModal = false"
+    />
+    <FeedbackModal
+      v-if="feedbackModal.open"
+      :variant="feedbackModal.variant"
+      :payload-context="feedbackModal.payloadContext"
+      @close="closeFeedbackModal"
     />
   </div>
 </template>

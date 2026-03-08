@@ -22,6 +22,8 @@ services:
         sync: false
       - key: PGSSL
         value: "true"
+      - key: FEEDBACK_IP_HASH_SECRET
+        sync: false
 
       # --- Gemini AI (required — Explore feature) ---
       - key: GEMINI_API_KEY
