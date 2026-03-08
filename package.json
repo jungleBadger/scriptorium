@@ -18,6 +18,7 @@
     "ingest:entities:enrich:meta": "node ingest/scripts/009_enrich_entities_metadata_llm.mjs",
     "ingest:entities:enrich:desc": "node ingest/scripts/010_enrich_entities_description_llm.mjs",
     "ingest:chapters:explain": "node ingest/scripts/012_enrich_chapters_explanation_ollama.mjs",
+    "ingest:chapters:sync:supabase": "node ingest/scripts/019_sync_chapter_explanations_supabase.mjs",
     "ingest:entities:export": "node ingest/scripts/011_export_entities_jsonl.mjs ingest/out/entities --batch-size 150",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

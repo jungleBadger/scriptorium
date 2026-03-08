@@ -7,7 +7,8 @@
 # silently skipped (DO NOTHING) or will crash (COPY). Verify target state first.
 #
 # Usage:
-#   SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+#   SUPABASE_DATABASE_URL='postgresql://postgres.PROJECT_REF:xxx@aws-0-REGION.pooler.supabase.com:5432/postgres' \
+#   bash ingest/scripts/migrate_to_supabase.sh
 #
 # Optional overrides:
 #   LOCAL_PASSWORD=xxx      (default: "bible")
@@ -15,7 +16,9 @@
 #   SKIP_DUMP=1             (reuse an existing dump file)
 #
 # Delta mode — push only new/changed rows for specific tables:
-#   DELTA=1 TABLES=chapter_explanations SUPABASE_PASSWORD=xxx bash ingest/scripts/migrate_to_supabase.sh
+#   DELTA=1 TABLES=chapter_explanations \
+#   SUPABASE_DATABASE_URL='postgresql://postgres.PROJECT_REF:xxx@aws-0-REGION.pooler.supabase.com:5432/postgres' \
+#   bash ingest/scripts/migrate_to_supabase.sh
 #
 #   DELTA=1   switches from COPY to INSERT … ON CONFLICT DO NOTHING.
 #             Rows already in the target are left untouched (target wins).
@@ -36,11 +39,12 @@ LOCAL_DB="${LOCAL_DB:-bible}"
 LOCAL_PASSWORD="${LOCAL_PASSWORD:-bible}"
 
 # Supabase direct connection (port 5432, bypasses pooler — better for bulk ops)
-SUPABASE_HOST="${SUPABASE_HOST:-db.saziylgexsqotjpqrqkb.supabase.co}"
+SUPABASE_DATABASE_URL="${SUPABASE_DATABASE_URL:-}"
+SUPABASE_HOST="${SUPABASE_HOST:-}"
 SUPABASE_PORT="${SUPABASE_PORT:-5432}"
 SUPABASE_USER="${SUPABASE_USER:-postgres}"
 SUPABASE_DB="${SUPABASE_DB:-postgres}"
-SUPABASE_PASSWORD="${SUPABASE_PASSWORD:?Must set SUPABASE_PASSWORD}"
+SUPABASE_PASSWORD="${SUPABASE_PASSWORD:-}"
 
 DUMP_FILE="${DUMP_FILE:-/tmp/scriptorium_data.sql}"
 DELTA="${DELTA:-0}"
@@ -51,11 +55,28 @@ if [[ "$DELTA" == "1" && -z "$TABLES" ]]; then
     exit 1
 fi
 
+if [[ -z "$SUPABASE_DATABASE_URL" ]]; then
+    if [[ -z "$SUPABASE_HOST" ]]; then
+        echo "ERROR: Set SUPABASE_DATABASE_URL (recommended, from Supabase Session pooler) or SUPABASE_HOST."
+        exit 1
+    fi
+    if [[ -z "$SUPABASE_PASSWORD" ]]; then
+        echo "ERROR: Set SUPABASE_PASSWORD when using SUPABASE_HOST/SUPABASE_USER/SUPABASE_DB."
+        exit 1
+    fi
+fi
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 local_psql()  { PGPASSWORD="$LOCAL_PASSWORD"    psql    -h "$LOCAL_HOST"    -p "$LOCAL_PORT"    -U "$LOCAL_USER"    -d "$LOCAL_DB"    "$@"; }
 local_dump()  { PGPASSWORD="$LOCAL_PASSWORD"    pg_dump -h "$LOCAL_HOST"    -p "$LOCAL_PORT"    -U "$LOCAL_USER"    -d "$LOCAL_DB"    "$@"; }
-remote_psql() { PGPASSWORD="$SUPABASE_PASSWORD" psql    -h "$SUPABASE_HOST" -p "$SUPABASE_PORT" -U "$SUPABASE_USER" -d "$SUPABASE_DB" "$@"; }
+remote_psql() {
+    if [[ -n "$SUPABASE_DATABASE_URL" ]]; then
+        psql "$SUPABASE_DATABASE_URL" "$@"
+    else
+        PGPASSWORD="$SUPABASE_PASSWORD" psql -h "$SUPABASE_HOST" -p "$SUPABASE_PORT" -U "$SUPABASE_USER" -d "$SUPABASE_DB" "$@"
+    fi
+}
 
 # ── Step 1: Row counts on local ───────────────────────────────────────────────
 
