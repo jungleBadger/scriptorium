@@ -42,6 +42,11 @@
     "lineSpacing": "Line spacing",
     "font": "Font",
     "theme": "Theme",
+    "support": "Help and feedback",
+    "feedbackHelp": "Send feedback privately to Scriptorium without signing in.",
+    "sendFeedback": "Send feedback",
+    "viewOnGitHub": "View project on GitHub",
+    "githubNote": "GitHub is for project visibility and technical exploration. It is not the main feedback channel.",
     "sizes": {
       "sm": "SM",
       "md": "MD",
@@ -81,6 +86,61 @@
     "oldTestament": "Old Testament",
     "newTestament": "New Testament",
     "noMatch": "No books match \"{query}\""
+  },
+  "feedback": {
+    "actions": {
+      "reportContent": "Report issue"
+    },
+    "kinds": {
+      "bug_report": "Bug report",
+      "product_feedback": "Product feedback"
+    },
+    "sources": {
+      "general": "General feedback",
+      "chapterSummary": "Chapter summary",
+      "entityDetail": "Entity description"
+    },
+    "modal": {
+      "reportKicker": "Private report",
+      "sendKicker": "Private feedback",
+      "reportTitle": "Report incorrect content",
+      "sendTitle": "Send feedback",
+      "reportIntro": "Tell us what looks wrong. We will store the exact AI text you saw with your report.",
+      "sendIntro": "Share a bug report or product suggestion privately with Scriptorium.",
+      "reportSuccessTitle": "Report received",
+      "sendSuccessTitle": "Feedback received",
+      "reportSuccessBody": "Thanks. This report was saved privately and can be reviewed without exposing your IP address.",
+      "sendSuccessBody": "Thanks. Your feedback was saved privately and is not routed through GitHub.",
+      "close": "Close",
+      "kindLabel": "Feedback type",
+      "contentMessageLabel": "What seems incorrect?",
+      "generalMessageLabel": "What would you like to share?",
+      "contentMessagePlaceholder": "Briefly describe the issue you noticed.",
+      "generalMessagePlaceholder": "Share the bug, rough edge, or idea you want us to review.",
+      "contentMessageHelp": "Minimum 10 characters. Briefly describe the issue you noticed.",
+      "generalMessageHelp": "Minimum 10 characters. Briefly describe your feedback.",
+      "messageCounter": "{current} / {minimum} minimum",
+      "suggestedFixLabel": "Suggested correction (optional)",
+      "suggestedFixPlaceholder": "If you know the right wording or fact, add it here.",
+      "emailLabel": "Email for follow-up (optional)",
+      "emailPlaceholder": "name [at] example.com",
+      "websiteLabel": "Leave this field empty",
+      "privacyNote": "Anonymous by default. Optional email is only for follow-up. Feedback goes directly to Scriptorium, not GitHub.",
+      "validation": {
+        "messageMin": "Please enter at least {minimum} characters.",
+        "email": "Please enter a valid email address."
+      },
+      "submitErrors": {
+        "review": "Please review the form and try again.",
+        "cooldown": "Please wait a moment and try again.",
+        "tooLarge": "This submission is too large to send. Please shorten it and try again.",
+        "unavailable": "Feedback is temporarily unavailable. Please try again later.",
+        "generic": "Could not send feedback right now. Please try again."
+      },
+      "cancel": "Cancel",
+      "submitting": "Sending...",
+      "submit": "Send"
+    }
   },
   "context": {
     "back": "Back",
@@ -142,6 +202,7 @@
       "exploring": "Exploring with AI...",
       "youAsked": "You asked:",
       "answer": "Answer",
+      "aiGenerated": "Generated with AI - may contain errors",
       "noAnswer": "No answer text returned.",
       "noResponse": "No response yet.",
       "passages": "Relevant Passages",

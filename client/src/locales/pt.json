@@ -42,6 +42,11 @@
     "lineSpacing": "Espa\u00e7amento de linha",
     "font": "Fonte",
     "theme": "Tema",
+    "support": "Ajuda e feedback",
+    "feedbackHelp": "Envie feedback de forma privada para o Scriptorium, sem login.",
+    "sendFeedback": "Enviar feedback",
+    "viewOnGitHub": "Ver projeto no GitHub",
+    "githubNote": "O GitHub serve para transpar\u00eancia e explora\u00e7\u00e3o t\u00e9cnica. N\u00e3o \u00e9 o canal principal de feedback.",
     "sizes": {
       "sm": "P",
       "md": "M",
@@ -81,6 +86,61 @@
     "oldTestament": "Antigo Testamento",
     "newTestament": "Novo Testamento",
     "noMatch": "Nenhum livro encontrado para \"{query}\""
+  },
+  "feedback": {
+    "actions": {
+      "reportContent": "Reportar problema"
+    },
+    "kinds": {
+      "bug_report": "Relatar bug",
+      "product_feedback": "Sugest\u00e3o de produto"
+    },
+    "sources": {
+      "general": "Feedback geral",
+      "chapterSummary": "Resumo do cap\u00edtulo",
+      "entityDetail": "Descri\u00e7\u00e3o da entidade"
+    },
+    "modal": {
+      "reportKicker": "Relato privado",
+      "sendKicker": "Feedback privado",
+      "reportTitle": "Reportar conte\u00fado incorreto",
+      "sendTitle": "Enviar feedback",
+      "reportIntro": "Conte o que parece estar errado. Vamos salvar com o relato o texto exato da IA que voc\u00ea viu.",
+      "sendIntro": "Envie um relato de bug ou uma sugest\u00e3o de forma privada ao Scriptorium.",
+      "reportSuccessTitle": "Relato recebido",
+      "sendSuccessTitle": "Feedback recebido",
+      "reportSuccessBody": "Obrigado. Este relato foi salvo de forma privada e pode ser revisado sem expor seu IP.",
+      "sendSuccessBody": "Obrigado. Seu feedback foi salvo de forma privada e n\u00e3o passa pelo GitHub.",
+      "close": "Fechar",
+      "kindLabel": "Tipo de feedback",
+      "contentMessageLabel": "O que parece incorreto?",
+      "generalMessageLabel": "O que voc\u00ea gostaria de compartilhar?",
+      "contentMessagePlaceholder": "Descreva brevemente o problema que voc\u00ea percebeu.",
+      "generalMessagePlaceholder": "Compartilhe o bug, atrito ou ideia que voc\u00ea quer que a gente revise.",
+      "contentMessageHelp": "M\u00ednimo de 10 caracteres. Descreva brevemente o problema que voc\u00ea percebeu.",
+      "generalMessageHelp": "M\u00ednimo de 10 caracteres. Descreva brevemente seu feedback.",
+      "messageCounter": "{current} / {minimum} m\u00ednimo",
+      "suggestedFixLabel": "Corre\u00e7\u00e3o sugerida (opcional)",
+      "suggestedFixPlaceholder": "Se souber a formula\u00e7\u00e3o ou o fato correto, adicione aqui.",
+      "emailLabel": "Email para retorno (opcional)",
+      "emailPlaceholder": "nome [arroba] exemplo.com",
+      "websiteLabel": "Deixe este campo vazio",
+      "privacyNote": "An\u00f4nimo por padr\u00e3o. O email opcional serve apenas para retorno. O feedback vai direto para o Scriptorium, n\u00e3o para o GitHub.",
+      "validation": {
+        "messageMin": "Digite pelo menos {minimum} caracteres.",
+        "email": "Digite um email v\u00e1lido."
+      },
+      "submitErrors": {
+        "review": "Revise o formul\u00e1rio e tente novamente.",
+        "cooldown": "Aguarde um momento e tente novamente.",
+        "tooLarge": "Este envio est\u00e1 grande demais. Encurte a mensagem e tente novamente.",
+        "unavailable": "O feedback est\u00e1 temporariamente indispon\u00edvel. Tente novamente mais tarde.",
+        "generic": "N\u00e3o foi poss\u00edvel enviar o feedback agora. Tente novamente."
+      },
+      "cancel": "Cancelar",
+      "submitting": "Enviando...",
+      "submit": "Enviar"
+    }
   },
   "context": {
     "back": "Voltar",
@@ -142,6 +202,7 @@
       "exploring": "Explorando com IA...",
       "youAsked": "Você perguntou:",
       "answer": "Resposta",
+      "aiGenerated": "Gerado com IA - pode conter erros",
       "noAnswer": "Nenhum texto de resposta retornado.",
       "noResponse": "Nenhuma resposta ainda.",
       "passages": "Passagens Relevantes",
