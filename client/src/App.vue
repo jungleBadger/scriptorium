@@ -44,6 +44,7 @@ const libraryOpen    = ref(false); // true = Library drawer open
 const insightsOpen   = ref(false); // true = Insights drawer open
 
 function readStoredJson(key, fallback = null) {
+  if (typeof window === "undefined" || !window.localStorage) return fallback;
   try {
     return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback;
   } catch {
@@ -52,6 +53,7 @@ function readStoredJson(key, fallback = null) {
 }
 
 function writeStoredJson(key, value) {
+  if (typeof window === "undefined" || !window.localStorage) return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
@@ -68,6 +70,8 @@ function loadLayoutPrefs() {
   libraryOpen.value = false;
   if (typeof savedLayout?.insightsPinned === "boolean") insightsPinned.value = savedLayout.insightsPinned;
 }
+
+loadLayoutPrefs();
 
 watch(insightsPinned, () => {
   writeStoredJson(LS_LAYOUT, { insightsPinned: insightsPinned.value });
@@ -506,7 +510,6 @@ watch(
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
-  loadLayoutPrefs();
   const savedSettings = readStoredJson(LS_READER_SETTINGS, null);
   if (savedSettings && typeof savedSettings === "object") {
     Object.assign(readerSettings, savedSettings);
