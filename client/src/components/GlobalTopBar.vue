@@ -16,6 +16,7 @@ defineProps({
   loading: { type: Boolean, default: false },
   chromeHidden: { type: Boolean, default: false },
   exploreEnabled: { type: Boolean, default: true },
+  ready: { type: Boolean, default: true },
   exploreDisabledReason: { type: String, default: null },
   ttsEnabled: { type: Boolean, default: true },
   ttsDisabledReason: { type: String, default: null },
@@ -75,33 +76,39 @@ function onOpenFeedback() {
         </button>
       </div>
 
-      <div v-if="exploreEnabled" class="global-top-bar-group global-top-bar-group--center">
-        <input
-          :value="quickQuery"
-          type="text"
-          class="field-input gtb-explore-input"
-          :placeholder="t('nav.explorePlaceholder')"
-          :aria-label="t('nav.explore')"
-          :disabled="loading"
-          :aria-busy="isExploring ? 'true' : 'false'"
-          title="Focus search (/)"
-          @input="emit('quick-query-change', $event.target.value)"
-          @keyup.enter.prevent="emit('explore-query')"
-        />
-        <button
-          class="primary-btn compact gtb-explore-btn"
-          type="button"
-          :disabled="loading || isExploring"
-          :title="t('nav.exploreTitle')"
-          :aria-busy="isExploring ? 'true' : 'false'"
-          @click="emit('explore-query')"
-        >
-          <span class="gtb-icon-slot gtb-icon-slot--small" aria-hidden="true">
-            <span v-if="isExploring" class="gtb-spinner"></span>
-            <Icon v-else name="Compass" :size="15" class="gtb-explore-btn__icon" />
-          </span>
-          <span>{{ isExploring ? t('nav.exploring') : t('nav.explore') }}</span>
-        </button>
+      <div v-if="!ready || exploreEnabled" class="global-top-bar-group global-top-bar-group--center">
+        <template v-if="!ready">
+          <div class="gtb-skeleton gtb-skeleton-input" aria-hidden="true"></div>
+          <div class="gtb-skeleton gtb-skeleton-btn" aria-hidden="true"></div>
+        </template>
+        <template v-else>
+          <input
+            :value="quickQuery"
+            type="text"
+            class="field-input gtb-explore-input"
+            :placeholder="t('nav.explorePlaceholder')"
+            :aria-label="t('nav.explore')"
+            :disabled="loading"
+            :aria-busy="isExploring ? 'true' : 'false'"
+            title="Focus search (/)"
+            @input="emit('quick-query-change', $event.target.value)"
+            @keyup.enter.prevent="emit('explore-query')"
+          />
+          <button
+            class="primary-btn compact gtb-explore-btn"
+            type="button"
+            :disabled="loading || isExploring"
+            :title="t('nav.exploreTitle')"
+            :aria-busy="isExploring ? 'true' : 'false'"
+            @click="emit('explore-query')"
+          >
+            <span class="gtb-icon-slot gtb-icon-slot--small" aria-hidden="true">
+              <span v-if="isExploring" class="gtb-spinner"></span>
+              <Icon v-else name="Compass" :size="15" class="gtb-explore-btn__icon" />
+            </span>
+            <span>{{ isExploring ? t('nav.exploring') : t('nav.explore') }}</span>
+          </button>
+        </template>
       </div>
 
       <div class="global-top-bar-group global-top-bar-group--right">

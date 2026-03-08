@@ -639,6 +639,34 @@ body {
   animation: gtb-spin 0.8s linear infinite;
 }
 
+.gtb-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--line) 25%,
+    color-mix(in srgb, var(--line) 40%, var(--paper)) 50%,
+    var(--line) 75%
+  );
+  background-size: 200% 100%;
+  animation: gtb-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--gtb-control-radius);
+  height: var(--gtb-control-height);
+}
+
+.gtb-skeleton-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.gtb-skeleton-btn {
+  width: 5.5rem;
+  flex-shrink: 0;
+}
+
+@keyframes gtb-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .gtb-explore-error {
   margin: 0.35rem 0 0;
   font-size: 0.75rem;
