@@ -35,25 +35,42 @@ const { isMobile, isTablet, isDesktop } = useBreakpoint();
 
 // ── Layout state ───────────────────────────────────────────────────────────
 const LS_LAYOUT = "scriptorium-layout";
+const LS_READER_SETTINGS = "scriptorium-reader-settings";
+const LS_LAST_READING_PLACE = "scriptorium-last-reading-place";
 
 const libraryPinned  = ref(false); // true = Library shown as column (desktop/tablet)
 const insightsPinned = ref(true);  // true = Insights shown as column (desktop/tablet)
 const libraryOpen    = ref(false); // true = Library drawer open
 const insightsOpen   = ref(false); // true = Insights drawer open
 
-function loadLayoutPrefs() {
+function readStoredJson(key, fallback = null) {
   try {
-    const s = JSON.parse(localStorage.getItem(LS_LAYOUT) || "{}");
-    if (typeof s.libraryPinned  === "boolean") libraryPinned.value  = s.libraryPinned;
-    if (typeof s.insightsPinned === "boolean") insightsPinned.value = s.insightsPinned;
+    return JSON.parse(localStorage.getItem(key) ?? "null") ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {}
 }
 
-watch([libraryPinned, insightsPinned], () => {
-  localStorage.setItem(
-    LS_LAYOUT,
-    JSON.stringify({ libraryPinned: libraryPinned.value, insightsPinned: insightsPinned.value })
-  );
+function toPositiveInteger(value) {
+  const num = Number(value);
+  return Number.isInteger(num) && num >= 1 ? num : null;
+}
+
+function loadLayoutPrefs() {
+  const savedLayout = readStoredJson(LS_LAYOUT, {});
+  libraryPinned.value = false;
+  libraryOpen.value = false;
+  if (typeof savedLayout?.insightsPinned === "boolean") insightsPinned.value = savedLayout.insightsPinned;
+}
+
+watch(insightsPinned, () => {
+  writeStoredJson(LS_LAYOUT, { insightsPinned: insightsPinned.value });
 });
 
 // ── Computed layout visibility ─────────────────────────────────────────────
@@ -250,6 +267,49 @@ let prefetchTimer = null;
 const chapterVerseMemory = new Map();
 const bookPositionMemory = new Map();
 
+function readSavedReadingPlace() {
+  const saved = readStoredJson(LS_LAST_READING_PLACE, null);
+  if (!saved || typeof saved !== "object") return null;
+
+  const savedTranslation =
+    typeof saved.translation === "string" && AVAILABLE_TRANSLATIONS.includes(saved.translation)
+      ? saved.translation
+      : null;
+  const savedBookId = typeof saved.bookId === "string" ? saved.bookId.trim() : "";
+  const savedChapter = toPositiveInteger(saved.chapter);
+  const savedVerse = toPositiveInteger(saved.verse);
+
+  if (!savedTranslation || !savedBookId || savedChapter == null) return null;
+  return {
+    translation: savedTranslation,
+    bookId: savedBookId,
+    chapter: savedChapter,
+    verse: savedVerse,
+  };
+}
+
+// Keep reading context across refreshes without coupling it to Library visibility.
+function persistLatestReadingPlace({
+  translationId = translation.value,
+  book = bookId.value,
+  chapterNumber = chapter.value,
+  verseNumber = activeVerse.value,
+} = {}) {
+  const safeTranslation = String(translationId || "");
+  const safeBook = String(book || "").trim();
+  const safeChapter = toPositiveInteger(chapterNumber);
+  const safeVerse = toPositiveInteger(verseNumber);
+  if (!safeBook || !safeChapter || !AVAILABLE_TRANSLATIONS.includes(safeTranslation)) return;
+
+  const payload = {
+    translation: safeTranslation,
+    bookId: safeBook,
+    chapter: safeChapter,
+  };
+  if (safeVerse != null) payload.verse = safeVerse;
+  writeStoredJson(LS_LAST_READING_PLACE, payload);
+}
+
 // ── Computed ───────────────────────────────────────────────────────────────
 const activeBook = computed(
   () => books.value.find((b) => b.book_id === bookId.value) || null
@@ -428,20 +488,19 @@ watch(
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
   loadLayoutPrefs();
-  const saved = localStorage.getItem('scriptorium-reader-settings');
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      Object.assign(readerSettings, parsed);
-      if (parsed.translation && AVAILABLE_TRANSLATIONS.includes(parsed.translation)) {
-        translation.value = parsed.translation;
-      }
-    } catch {}
+  const savedSettings = readStoredJson(LS_READER_SETTINGS, null);
+  if (savedSettings && typeof savedSettings === "object") {
+    Object.assign(readerSettings, savedSettings);
+    if (savedSettings.translation && AVAILABLE_TRANSLATIONS.includes(savedSettings.translation)) {
+      translation.value = savedSettings.translation;
+    }
   } else {
     // First visit — pick translation based on browser language.
     const lang = (navigator.language || '').toLowerCase();
     if (lang.startsWith('pt')) translation.value = 'PT1911';
   }
+  const savedReadingPlace = readSavedReadingPlace();
+  if (savedReadingPlace) translation.value = savedReadingPlace.translation;
   applySettingsCSSVars();
   await refreshFeatureAvailability();
   // Normalize saved voice (or pick one) for the current translation.
@@ -453,11 +512,11 @@ onMounted(async () => {
       readerSettings.voiceId
     );
   }
-  await initializeReader();
+  await initializeReader(savedReadingPlace);
 });
 
 watch([readerSettings, translation], () => {
-  localStorage.setItem('scriptorium-reader-settings', JSON.stringify({ ...readerSettings, translation: translation.value }));
+  writeStoredJson(LS_READER_SETTINGS, { ...readerSettings, translation: translation.value });
   applySettingsCSSVars();
 }, { deep: true });
 
@@ -487,7 +546,7 @@ watch(activeVerseAnchorKey, (nextAnchorKey) => {
 });
 
 // ── Reader ─────────────────────────────────────────────────────────────────
-async function initializeReader() {
+async function initializeReader(initialLocation = null) {
   readerLoading.value = true;
   readerError.value = null;
   activeVerse.value = null;
@@ -505,6 +564,12 @@ async function initializeReader() {
       return;
     }
 
+    const savedLocation = initialLocation?.translation === translation.value ? initialLocation : null;
+    if (savedLocation?.bookId) {
+      bookId.value = savedLocation.bookId;
+      chapter.value = savedLocation.chapter;
+    }
+
     const hasCurrentBook = books.value.some((b) => b.book_id === bookId.value);
     if (!hasCurrentBook) {
       bookId.value = books.value[0].book_id;
@@ -517,6 +582,14 @@ async function initializeReader() {
     }
 
     await loadChapter(bookId.value, chapter.value);
+
+    if (savedLocation?.bookId === bookId.value && savedLocation.chapter === chapter.value && savedLocation.verse != null) {
+      const hasSavedVerse = (chapterData.value?.verses || []).some((verse) => Number(verse?.verse) === savedLocation.verse);
+      if (hasSavedVerse) {
+        activeVerse.value = savedLocation.verse;
+        rememberPosition(bookId.value, chapter.value, savedLocation.verse);
+      }
+    }
   } catch (err) {
     readerError.value = getApiErrorMessage(err, { context: "books" });
     chapterData.value = null;
@@ -567,6 +640,13 @@ async function loadChapter(nextBookId, nextChapter, { focusVerse = null } = {}) 
     activeVerse.value = nextActiveVerse;
     if (nextActiveVerse != null) {
       rememberPosition(nextBookId, nextChapter, nextActiveVerse);
+    } else {
+      persistLatestReadingPlace({
+        translationId: translation.value,
+        book: nextBookId,
+        chapterNumber: nextChapter,
+        verseNumber: null,
+      });
     }
 
   } catch (err) {
@@ -1040,7 +1120,16 @@ async function onNavigate(direction) {
       const firstVerse = verses[0]?.verse ?? null;
       const nextActiveVerse = verses.some((v) => v.verse === targetVerse) ? targetVerse : firstVerse;
       activeVerse.value = nextActiveVerse;
-      if (nextActiveVerse != null) rememberPosition(nav.book_id, targetChapter, nextActiveVerse);
+      if (nextActiveVerse != null) {
+        rememberPosition(nav.book_id, targetChapter, nextActiveVerse);
+      } else {
+        persistLatestReadingPlace({
+          translationId: translation.value,
+          book: nav.book_id,
+          chapterNumber: targetChapter,
+          verseNumber: null,
+        });
+      }
       schedulePrefetch(); // begin warming the chapter after this one
       return;
     }
@@ -1192,6 +1281,12 @@ function rememberPosition(book, chapterNumber, verseNumber) {
   if (chapterNumber < 1 || verseNumber < 1) return;
   chapterVerseMemory.set(makeChapterMemoryKey(book, chapterNumber), verseNumber);
   bookPositionMemory.set(makeBookMemoryKey(book), { chapter: chapterNumber, verse: verseNumber });
+  persistLatestReadingPlace({
+    translationId: translation.value,
+    book,
+    chapterNumber,
+    verseNumber,
+  });
 }
 
 function getRememberedVerse(book, chapterNumber) {
