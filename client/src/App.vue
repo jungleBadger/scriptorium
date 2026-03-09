@@ -176,6 +176,8 @@ const readerLoading = ref(true);
 const readerError = ref(null);
 const activeVerse = ref(null);
 const selectedEntityId = ref(null);
+// Prevent startup restore from triggering a second initializeReader() via translation watchers.
+const readerBootstrapping = ref(true);
 const readerUx = useReaderState();
 const tts = useTts();
 
@@ -591,31 +593,35 @@ watch(
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────
 onMounted(async () => {
-  const savedSettings = readStoredJson(LS_READER_SETTINGS, null);
-  if (savedSettings && typeof savedSettings === "object") {
-    Object.assign(readerSettings, savedSettings);
-    if (savedSettings.translation && AVAILABLE_TRANSLATIONS.includes(savedSettings.translation)) {
-      translation.value = savedSettings.translation;
-    }
-  } else {
+  try {
+    const savedSettings = readStoredJson(LS_READER_SETTINGS, null);
+    if (savedSettings && typeof savedSettings === "object") {
+      Object.assign(readerSettings, savedSettings);
+      if (savedSettings.translation && AVAILABLE_TRANSLATIONS.includes(savedSettings.translation)) {
+        translation.value = savedSettings.translation;
+      }
+    } else {
     // First visit — pick translation based on browser language.
-    const lang = (navigator.language || '').toLowerCase();
-    if (lang.startsWith('pt')) translation.value = 'PT1911';
+      const lang = (navigator.language || '').toLowerCase();
+      if (lang.startsWith('pt')) translation.value = 'PT1911';
+    }
+    const savedReadingPlace = readSavedReadingPlace();
+    if (savedReadingPlace) translation.value = savedReadingPlace.translation;
+    applySettingsCSSVars();
+    await refreshFeatureAvailability();
+    // Normalize saved voice (or pick one) for the current translation.
+    if (ttsEnabled.value) {
+      const voices = await fetchVoices();
+      readerSettings.voiceId = pickVoiceForLanguage(
+        voices,
+        translationLanguage(translation.value),
+        readerSettings.voiceId
+      );
+    }
+    await initializeReader(savedReadingPlace);
+  } finally {
+    readerBootstrapping.value = false;
   }
-  const savedReadingPlace = readSavedReadingPlace();
-  if (savedReadingPlace) translation.value = savedReadingPlace.translation;
-  applySettingsCSSVars();
-  await refreshFeatureAvailability();
-  // Normalize saved voice (or pick one) for the current translation.
-  if (ttsEnabled.value) {
-    const voices = await fetchVoices();
-    readerSettings.voiceId = pickVoiceForLanguage(
-      voices,
-      translationLanguage(translation.value),
-      readerSettings.voiceId
-    );
-  }
-  await initializeReader(savedReadingPlace);
 });
 
 watch([readerSettings, translation], () => {
@@ -632,7 +638,7 @@ watch(translation, (trans) => {
 }, { immediate: true });
 
 watch(translation, async (next, prev) => {
-  if (next === prev) return;
+  if (next === prev || readerBootstrapping.value) return;
   // Auto-select voice matching new language, unless current voice already matches.
   if (ttsEnabled.value) {
     const voices = await fetchVoices();
