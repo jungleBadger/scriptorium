@@ -5,6 +5,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   || "gemini-2.5-flash";
+const GEMINI_THINKING_BUDGET = parseThinkingBudget(process.env.GEMINI_THINKING_BUDGET);
+const DEFAULT_MAX_TOKENS = 1200;
 
 export class GeminiRequestError extends Error {
   constructor(message, statusCode = 500, code = "GEMINI_ERROR") {
@@ -19,6 +21,31 @@ export function getGeminiConfig() {
   return { configured: Boolean(GEMINI_API_KEY), model: GEMINI_MODEL };
 }
 
+function parseThinkingBudget(value) {
+  if (value == null || String(value).trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function defaultThinkingBudgetForModel(model) {
+  return String(model || "").toLowerCase().startsWith("gemini-2.5") ? 0 : null;
+}
+
+function buildGenerationConfig({ temperature, maxTokens } = {}) {
+  const generationConfig = {
+    temperature,
+    maxOutputTokens: maxTokens,
+    responseMimeType: "text/plain",
+  };
+
+  const thinkingBudget = GEMINI_THINKING_BUDGET ?? defaultThinkingBudgetForModel(GEMINI_MODEL);
+  if (thinkingBudget != null) {
+    generationConfig.thinkingConfig = { thinkingBudget };
+  }
+
+  return generationConfig;
+}
+
 function getClient() {
   if (!GEMINI_API_KEY) {
     throw new GeminiRequestError(
@@ -30,7 +57,7 @@ function getClient() {
   return new GoogleGenerativeAI(GEMINI_API_KEY);
 }
 
-export async function generateGeminiText({ prompt, temperature = 0.2, maxTokens = 800 } = {}) {
+export async function generateGeminiText({ prompt, temperature = 0.2, maxTokens = DEFAULT_MAX_TOKENS } = {}) {
   const text = String(prompt || "").trim();
   if (!text) {
     throw new GeminiRequestError("Cannot call Gemini without a prompt.", 500, "GEMINI_BAD_REQUEST");
@@ -38,7 +65,7 @@ export async function generateGeminiText({ prompt, temperature = 0.2, maxTokens 
 
   const model = getClient().getGenerativeModel({
     model: GEMINI_MODEL,
-    generationConfig: { temperature, maxOutputTokens: maxTokens },
+    generationConfig: buildGenerationConfig({ temperature, maxTokens }),
   });
 
   let result;
@@ -74,6 +101,13 @@ export async function generateGeminiText({ prompt, temperature = 0.2, maxTokens 
       "This question could not be answered due to content safety filters. Try rephrasing.",
       422,
       "GEMINI_SAFETY_BLOCK"
+    );
+  }
+  if (finishReason === "MAX_TOKENS") {
+    throw new GeminiRequestError(
+      "Gemini stopped before completing the answer. Please retry.",
+      502,
+      "GEMINI_TRUNCATED_RESPONSE"
     );
   }
 
