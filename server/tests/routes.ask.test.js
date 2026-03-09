@@ -93,6 +93,17 @@ describe("POST /api/ask", () => {
     expect(JSON.parse(res.body).code).toBe("GEMINI_AUTH_ERROR");
   });
 
+  it("returns 502 when Gemini cuts the answer off at MAX_TOKENS", async () => {
+    const err = Object.assign(new Error("truncated"), { code: "GEMINI_TRUNCATED_RESPONSE", statusCode: 502 });
+    askQuestion.mockRejectedValueOnce(err);
+    const res = await app.inject({ method: "POST", url: "/api/ask", payload: validBody });
+    expect(res.statusCode).toBe(502);
+    expect(JSON.parse(res.body)).toMatchObject({
+      code: "GEMINI_TRUNCATED_RESPONSE",
+      retryable: true,
+    });
+  });
+
   it("returns 500 on unexpected server error", async () => {
     askQuestion.mockRejectedValueOnce(new Error("something broke"));
     const res = await app.inject({ method: "POST", url: "/api/ask", payload: validBody });

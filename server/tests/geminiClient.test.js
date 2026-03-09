@@ -85,6 +85,18 @@ describe("generateGeminiText", () => {
     });
   });
 
+  it("throws GEMINI_TRUNCATED_RESPONSE when Gemini stops at MAX_TOKENS", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    mockGenerateContent.mockResolvedValueOnce({
+      response: { candidates: [{ finishReason: "MAX_TOKENS" }], text: () => "Partial answer" },
+    });
+    const { generateGeminiText } = await import("../services/geminiClient.js");
+    await expect(generateGeminiText({ prompt: "hello" })).rejects.toMatchObject({
+      code: "GEMINI_TRUNCATED_RESPONSE",
+      statusCode: 502,
+    });
+  });
+
   it("throws GEMINI_RATE_LIMITED on HTTP 429", async () => {
     vi.stubEnv("GEMINI_API_KEY", "test-key");
     mockGenerateContent.mockRejectedValueOnce({ status: 429, message: "quota" });
@@ -135,5 +147,38 @@ describe("generateGeminiText", () => {
     const { generateGeminiText } = await import("../services/geminiClient.js");
     const result = await generateGeminiText({ prompt: "hello" });
     expect(result).toBe("The answer.");
+  });
+
+  it("disables Gemini 2.5 thinking by default so output tokens are reserved for the answer", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    mockGenerateContent.mockResolvedValueOnce({
+      response: { candidates: [{ finishReason: "STOP" }], text: () => "The answer." },
+    });
+    const { generateGeminiText } = await import("../services/geminiClient.js");
+    await generateGeminiText({ prompt: "hello" });
+    expect(mockGetGenerativeModel).toHaveBeenCalledWith(expect.objectContaining({
+      model: "gemini-2.5-flash",
+      generationConfig: expect.objectContaining({
+        maxOutputTokens: 1200,
+        responseMimeType: "text/plain",
+        thinkingConfig: { thinkingBudget: 0 },
+      }),
+    }));
+  });
+
+  it("respects GEMINI_THINKING_BUDGET when explicitly configured", async () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    vi.stubEnv("GEMINI_THINKING_BUDGET", "32");
+    mockGenerateContent.mockResolvedValueOnce({
+      response: { candidates: [{ finishReason: "STOP" }], text: () => "The answer." },
+    });
+    const { generateGeminiText } = await import("../services/geminiClient.js");
+    await generateGeminiText({ prompt: "hello", maxTokens: 900 });
+    expect(mockGetGenerativeModel).toHaveBeenCalledWith(expect.objectContaining({
+      generationConfig: expect.objectContaining({
+        maxOutputTokens: 900,
+        thinkingConfig: { thinkingBudget: 32 },
+      }),
+    }));
   });
 });

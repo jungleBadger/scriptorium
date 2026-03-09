@@ -254,7 +254,7 @@ export async function askQuestion({
     foundEntities,
   });
 
-  const rawResponseText = await generateGeminiText({ prompt, temperature: 0.2, maxTokens: 800 });
+  const rawResponseText = await generateGeminiText({ prompt, temperature: 0.2 });
 
   return {
     raw_response_text:  rawResponseText,

@@ -49,6 +49,9 @@ function normalizeAskError(err) {
   if (code === "GEMINI_SAFETY_BLOCK") {
     return { statusCode: 422, code, retryable: false, message: "This question could not be answered due to content safety filters. Try rephrasing." };
   }
+  if (code === "GEMINI_TRUNCATED_RESPONSE") {
+    return { statusCode: 502, code, retryable: true, message: "The AI response was cut off before it finished. Please try again." };
+  }
   if (code === "GEMINI_AUTH_ERROR") {
     return { statusCode: 503, code, retryable: false, message: "The AI service is misconfigured." };
   }
