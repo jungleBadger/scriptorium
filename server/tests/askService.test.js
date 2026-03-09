@@ -22,7 +22,7 @@ describe("buildAskPrompt", () => {
 
   it("includes the bible version and passage reference", () => {
     const prompt = buildAskPrompt(base);
-    expect(prompt).toContain("BIBLE_VERSION: WEBU");
+    expect(prompt).toContain("CURRENT_TRANSLATION: English (World English Bible)");
     expect(prompt).toContain("EXO 3:1");
   });
 
@@ -46,7 +46,7 @@ describe("buildAskPrompt", () => {
       ],
     });
     expect(prompt).toContain("[CHAPTER_TEXT]");
-    expect(prompt).toContain("EXO 3 (WEBU)");
+    expect(prompt).toContain("EXO 3 (English (World English Bible))");
     expect(prompt).toContain("1 Now Moses was tending the flock.");
     expect(prompt).toContain("2 There the angel of the LORD appeared to him.");
   });
@@ -81,5 +81,8 @@ describe("buildAskPrompt", () => {
     const prompt = buildAskPrompt(base);
     expect(prompt).toContain("You are a scholarly Bible study assistant.");
     expect(prompt).toContain("PLAIN TEXT ONLY");
+    expect(prompt).toContain("Do not say phrases like \"based on the provided text\"");
+    expect(prompt).toContain("internal translation codes such as PT1911 or WEBU");
+    expect(prompt).toContain("mention the passage naturally in the response language");
   });
 });

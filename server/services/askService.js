@@ -19,8 +19,19 @@ const TRANSLATION_LANGUAGE_NAME = {
   ARC:    "Portuguese",
 };
 
+const TRANSLATION_DISPLAY_NAME = {
+  PT1911: "Portuguese (Almeida Revista e Corrigida, 1911)",
+  ARC:    "Portuguese (Almeida Revista e Corrigida)",
+  WEBU:   "English (World English Bible)",
+};
+
 function translationLanguageName(translation) {
   return TRANSLATION_LANGUAGE_NAME[String(translation || "").toUpperCase()] ?? "English";
+}
+
+function translationDisplayName(translation) {
+  return TRANSLATION_DISPLAY_NAME[String(translation || "").toUpperCase()]
+    ?? `${translationLanguageName(translation)} translation`;
 }
 
 const ENTITY_STOPWORDS = new Set([
@@ -200,8 +211,9 @@ export async function retrieveFoundEntities({ question, activeEntityIds = [], kE
 }
 
 export function buildAskPrompt({ question, translation, book, chapter, verse, chapterVerses = [], foundEntities = [] } = {}) {
+  const translationLabel = translationDisplayName(translation);
   const chapterTextBlock = chapterVerses.length
-    ? `[CHAPTER_TEXT]\n${book} ${chapter} (${translation})\n${chapterVerses.map((v) => `${v.verse} ${v.text}`).join("\n")}`
+    ? `[CHAPTER_TEXT]\n${book} ${chapter} (${translationLabel})\n${chapterVerses.map((v) => `${v.verse} ${v.text}`).join("\n")}`
     : "";
 
   const entityNames = Array.isArray(foundEntities)
@@ -213,7 +225,7 @@ export function buildAskPrompt({ question, translation, book, chapter, verse, ch
 
   return ASK_PROMPT_TEMPLATE
     .replace("{{LANGUAGE}}", translationLanguageName(translation))
-    .replace("{{TRANSLATION}}", translation)
+    .replace("{{TRANSLATION}}", translationLabel)
     .replace("{{BOOK}}", book)
     .replace("{{CHAPTER}}", chapter)
     .replace("{{VERSE}}", verse)
